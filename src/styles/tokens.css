@@ -1,0 +1,154 @@
+/*
+ * Tokens visuais — baseados no design system Bold (Laboratório Bridge/UFSC),
+ * a mesma linguagem do e-SUS APS PEC. Escalas c10 (mais escuro) → c90 (mais claro).
+ */
+:root {
+  /* Escalas Bold */
+  --blue-10: #002451;
+  --blue-20: #003a79;
+  --blue-30: #0051a2;
+  --blue-40: #0069d0;
+  --blue-50: #007af0;
+  --blue-60: #498fff;
+  --blue-70: #84aaff;
+  --blue-80: #c5d4ff;
+  --blue-90: #ecf0ff;
+
+  --gray-10: #24252e;
+  --gray-20: #3a3a47;
+  --gray-30: #515162;
+  --gray-40: #696979;
+  --gray-50: #7a7b8e;
+  --gray-60: #8f8fa2;
+  --gray-70: #aaaab9;
+  --gray-80: #d3d4dd;
+  --gray-90: #f0f0f5;
+  --gray-95: #f7f7fa;
+
+  --green-20: #0e4700;
+  --green-30: #166000;
+  --green-40: #217b00;
+  --green-50: #2e8e16;
+  --green-80: #9de695;
+  --green-90: #e1f6df;
+
+  --red-20: #790c14;
+  --red-30: #a4151e;
+  --red-40: #d01e29;
+  --red-80: #fac8c9;
+  --red-90: #feeced;
+
+  --yellow-20: #4c3900;
+  --yellow-30: #684f00;
+  --yellow-70: #d5a400;
+  --yellow-80: #fcce74;
+  --yellow-90: #ffeed6;
+
+  --orange-30: #873d00;
+  --orange-40: #ad5000;
+  --orange-90: #ffece8;
+
+  /* Papéis semânticos */
+  --color-bg: var(--gray-90);
+  --color-surface: #ffffff;
+  --color-surface-hover: var(--gray-95);
+  --color-divider: var(--gray-80);
+  --color-border-input: var(--gray-60);
+
+  --color-text: var(--gray-10);
+  --color-text-secondary: var(--gray-40);
+  --color-text-disabled: var(--gray-70);
+  --color-text-inverse: #ffffff;
+
+  --color-primary: var(--blue-40);
+  --color-primary-hover: var(--blue-30);
+  --color-primary-active: var(--blue-20);
+  --color-primary-tint: var(--blue-90);
+  --color-primary-ink: var(--blue-30);
+
+  --color-danger: var(--red-40);
+  --color-danger-hover: var(--red-30);
+  --color-focus: var(--blue-50);
+
+  /* Escala de status das visitas — sempre acompanhada de ícone e texto */
+  --status-realizada: var(--green-50);
+  --status-realizada-bg: var(--green-90);
+  --status-realizada-ink: var(--green-30);
+  --status-realizada-line: var(--green-80);
+
+  --status-ausente: var(--yellow-70);
+  --status-ausente-bg: var(--yellow-90);
+  --status-ausente-ink: var(--yellow-30);
+  --status-ausente-line: var(--yellow-80);
+
+  --status-naomora: var(--red-40);
+  --status-naomora-bg: var(--red-90);
+  --status-naomora-ink: var(--red-30);
+  --status-naomora-line: var(--red-80);
+
+  --status-pendente: var(--gray-80);
+  --status-pendente-dot: var(--gray-60);
+  --status-pendente-bg: var(--gray-90);
+  --status-pendente-ink: var(--gray-30);
+  --status-pendente-line: var(--gray-80);
+
+  /* Tipografia */
+  --font-sans: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --text-xs: 0.75rem;     /* 12 */
+  --text-sm: 0.8125rem;   /* 13 */
+  --text-md: 0.875rem;    /* 14 */
+  --text-base: 0.9375rem; /* 15 — corpo no celular */
+  --text-lg: 1rem;        /* 16 */
+  --text-xl: 1.25rem;     /* 20 */
+  --text-2xl: 1.5rem;     /* 24 */
+  --input-font: 1rem;     /* 16px no celular evita o zoom automático do iOS */
+
+  /* Espaçamento */
+  --space-1: 0.25rem;
+  --space-2: 0.5rem;
+  --space-3: 0.75rem;
+  --space-4: 1rem;
+  --space-5: 1.25rem;
+  --space-6: 1.5rem;
+  --space-8: 2rem;
+  --space-10: 2.5rem;
+  --space-12: 3rem;
+
+  /* Forma */
+  --radius-input: 2px;
+  --radius-button: 4px;
+  --radius-paper: 4px;
+  --radius-tag: 12px;
+
+  /* Sombras Bold (outer) */
+  --shadow-10: 0 1px 5px 0 rgba(0, 0, 0, 0.12), 0 2px 1px 0 rgba(0, 0, 0, 0.04);
+  --shadow-20: 0 1px 5px 0 rgba(0, 0, 0, 0.2), 0 3px 1px -2px rgba(0, 0, 0, 0.12), 0 2px 2px 0 rgba(0, 0, 0, 0.14);
+  --shadow-40: 0 2px 4px -1px rgba(0, 0, 0, 0.2), 0 1px 10px 0 rgba(0, 0, 0, 0.12), 0 4px 5px 0 rgba(0, 0, 0, 0.14);
+  --shadow-160: 0 8px 10px -5px rgba(0, 0, 0, 0.2), 0 6px 30px 5px rgba(0, 0, 0, 0.12), 0 16px 24px 2px rgba(0, 0, 0, 0.14);
+  --shadow-inset: inset 0 2px 8px 0 rgba(0, 0, 0, 0.1);
+  --focus-ring: 0 0 0 2px #ffffff, 0 0 0 4px var(--color-focus);
+
+  /* Estrutura */
+  --topbar-h: 56px;
+  --sidenav-w: 248px;
+  --bottomnav-h: 60px;
+  --control-h: 44px;
+  --control-h-sm: 36px;
+  --content-max: 1200px;
+  --gutter: var(--space-4);
+
+  /* Movimento */
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+  --dur-fast: 120ms;
+  --dur: 180ms;
+}
+
+@media (min-width: 960px) {
+  :root {
+    --text-base: 0.875rem;
+    --input-font: 0.875rem;
+    --control-h: 36px;
+    --control-h-sm: 32px;
+    --gutter: var(--space-8);
+  }
+}
