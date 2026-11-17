@@ -2,7 +2,7 @@
 
 import React from "react";
 import { Link, useNavigate } from "../lib/router";
-import { ChevronRight, LogOut, UserRound, UserCog } from "lucide-react";
+import { ChevronRight, LogOut, UserRound, UserCog, MapPinned } from "lucide-react";
 import { useAuth } from "../auth/AuthContext";
 import AppLayout from "../components/AppLayout";
 import { PageHeader } from "../components/ui";
@@ -24,6 +24,12 @@ function Configuracoes() {
       descricao: "Cadastre agentes e supervisores e vincule cada agente à sua equipe.",
       Icone: UserCog,
       to: "/config/usuarios",
+    },
+    supervisor && {
+      titulo: "Território",
+      descricao: "Microáreas, ACS responsável e CEPs atendidos. Define quem pode pedir cadastro pela área do paciente.",
+      Icone: MapPinned,
+      to: "/config/territorio",
     },
   ].filter(Boolean);
 

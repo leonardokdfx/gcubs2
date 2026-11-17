@@ -147,3 +147,55 @@ export function ConfirmDialog({
     </dialog>
   );
 }
+
+/* ───────────── Diálogo com formulário ───────────── */
+export function FormDialog({ open, title, description, children, submitLabel = "Salvar", danger = false, loading = false, wide = false, extraAction, onSubmit, onCancel }) {
+  const ref = useRef(null);
+  const idTitulo = React.useId();
+
+  useEffect(() => {
+    const dialog = ref.current;
+    if (!dialog) return;
+    if (open && !dialog.open) dialog.showModal();
+    if (!open && dialog.open) dialog.close();
+  }, [open]);
+
+  return (
+    <dialog
+      ref={ref}
+      className={`dialog${wide ? " dialog--wide" : ""}`}
+      aria-labelledby={idTitulo}
+      onCancel={(e) => {
+        e.preventDefault();
+        if (!loading) onCancel();
+      }}
+    >
+      <form
+        noValidate
+        onSubmit={(e) => {
+          e.preventDefault();
+          onSubmit();
+        }}
+      >
+        <div className="dialog__body" style={{ display: "block" }}>
+          <h2 className="dialog__title" id={idTitulo}>
+            {title}
+          </h2>
+          {description && <div className="dialog__text">{description}</div>}
+          <div className="stack" style={{ marginTop: 16, gap: 16 }}>
+            {open && children}
+          </div>
+        </div>
+        <div className="dialog__footer">
+          {extraAction}
+          <Button onClick={onCancel} disabled={loading}>
+            Voltar
+          </Button>
+          <Button type="submit" variant={danger ? "danger" : "primary"} loading={loading} loadingText="Aguarde…">
+            {submitLabel}
+          </Button>
+        </div>
+      </form>
+    </dialog>
+  );
+}

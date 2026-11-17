@@ -49,9 +49,14 @@ function Login() {
       title="Acesso ao sistema"
       subtitle="Entre com o e-mail e a senha cadastrados pelo supervisor."
       footer={
-        <span>
-          Não tem conta? <Link to="/cadastro">Cadastre-se</Link>
-        </span>
+        <div className="stack" style={{ gap: 8 }}>
+          <span>
+            Não tem conta? <Link to="/cadastro">Cadastre-se</Link>
+          </span>
+          <span>
+            É paciente? <Link to="/paciente">Agende seu cadastro</Link>
+          </span>
+        </div>
       }
     >
       <form className="auth__form" onSubmit={handleLogin} noValidate>

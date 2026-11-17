@@ -5,7 +5,14 @@ import { EQUIPES } from "../constants/dominio";
 import { BrandMark } from "./ui";
 
 /** Layout das telas de acesso (login e configuração inicial). */
-function AuthLayout({ title, subtitle, children, footer }) {
+function AuthLayout({
+  title,
+  subtitle,
+  children,
+  footer,
+  lead = "Registro e acompanhamento das visitas domiciliares dos Agentes Comunitários de Saúde, por equipe.",
+  mostrarEquipes = true,
+}) {
   return (
     <div className="auth">
       <aside className="auth__aside">
@@ -14,20 +21,20 @@ function AuthLayout({ title, subtitle, children, footer }) {
           <span className="auth__name">Visitas Domiciliares</span>
         </div>
         <div className="auth__intro">
-          <p className="auth__lead">
-            Registro e acompanhamento das visitas domiciliares dos Agentes Comunitários de Saúde, por equipe.
-          </p>
-          <div className="auth__teams">
-            <p className="auth__teams-label">Equipes da unidade</p>
-            <ul className="auth__teams-list">
-              {EQUIPES.map(({ nome, Icone }) => (
-                <li key={nome}>
-                  <Icone aria-hidden="true" />
-                  {nome}
-                </li>
-              ))}
-            </ul>
-          </div>
+          <p className="auth__lead">{lead}</p>
+          {mostrarEquipes && (
+            <div className="auth__teams">
+              <p className="auth__teams-label">Equipes da unidade</p>
+              <ul className="auth__teams-list">
+                {EQUIPES.map(({ nome, Icone }) => (
+                  <li key={nome}>
+                    <Icone aria-hidden="true" />
+                    {nome}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
         </div>
       </aside>
 

@@ -33,10 +33,12 @@ export function lerToken(req) {
   }
 }
 
-/** Exige um usuário autenticado (equivalente ao middleware `autenticar`). */
+/** Exige um usuário da equipe autenticado (agente ou supervisor). */
 export function autenticar(req) {
   const user = lerToken(req);
   if (!user) throw new HttpError(401, "Token não fornecido");
+  // Contas do portal do paciente nunca acessam as rotas internas.
+  if (user.role === "paciente") throw new HttpError(403, "Acesso restrito à equipe de saúde");
   return user;
 }
 

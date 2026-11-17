@@ -324,6 +324,11 @@
   max-width: 880px;
 }
 
+/* Portal do paciente: sem navegação inferior. */
+.main--portal {
+  padding-bottom: 0;
+}
+
 /* ───────────────────────── Telas de acesso ───────────────────────── */
 .auth {
   display: flex;
@@ -853,5 +858,107 @@
   .home-grid {
     grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
     gap: var(--space-6);
+  }
+}
+
+/* ───────────────────────── Portal do paciente ───────────────────────── */
+.passos {
+  display: grid;
+  gap: var(--space-3);
+  margin: 0;
+  padding-left: var(--space-6);
+  color: var(--color-text);
+  font-size: var(--text-md);
+}
+
+.passos li::marker {
+  color: var(--color-primary);
+  font-weight: 700;
+}
+
+.protocolo {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-8) var(--space-6);
+  text-align: center;
+}
+
+.protocolo__icone {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  background: var(--status-realizada-bg);
+  color: var(--status-realizada-ink);
+}
+
+.protocolo__icone svg {
+  width: 30px;
+  height: 30px;
+}
+
+.protocolo__titulo {
+  margin: var(--space-2) 0 0;
+  font-size: var(--text-xl);
+}
+
+.protocolo__texto {
+  max-width: 52ch;
+  margin: 0;
+  color: var(--color-text-secondary);
+  font-size: var(--text-md);
+}
+
+.protocolo__numero {
+  margin: var(--space-1) 0 var(--space-3);
+  padding: var(--space-2) var(--space-5);
+  border: 2px dashed var(--color-primary);
+  border-radius: var(--radius-paper);
+  color: var(--color-primary-ink);
+  font-size: var(--text-2xl);
+  font-weight: 700;
+  letter-spacing: 0.18em;
+}
+
+.lgpd__texto {
+  margin: 0 0 var(--space-4);
+  color: var(--color-text-secondary);
+  font-size: var(--text-md);
+}
+
+/* Campo-armadilha para robôs: fora da tela, invisível para pessoas e leitores de tela. */
+.armadilha {
+  position: absolute;
+  left: -10000px;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+}
+
+/* ───────────────────────── Território ───────────────────────── */
+.dialog--wide {
+  width: min(640px, calc(100vw - 2 * var(--space-4)));
+}
+
+.ceps-preview {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.toolbar__micro .select {
+  width: 100%;
+}
+
+@media (min-width: 960px) {
+  .toolbar__micro {
+    flex: 0 0 220px;
   }
 }

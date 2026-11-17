@@ -9,7 +9,8 @@ import AppLayout from "../components/AppLayout";
 import { Alert, Button, ButtonLink, Field, PageHeader, Section, Skeleton, Stepper } from "../components/ui";
 import { ConfirmDialog, useToast } from "../components/feedback";
 import { GRUPOS_ATENCAO } from "../constants/dominio";
-import { cpfValido, hojeISO, mascaraCEP, mascaraCPF, mascaraTelefone, somenteDigitos } from "../utils/formatos";
+import { cnsValido, cpfValido, hojeISO, mascaraCEP, mascaraCNS, mascaraCPF, mascaraTelefone, rotuloMicroarea, somenteDigitos } from "../utils/formatos";
+import { erroNascimento } from "../utils/agendamento";
 
 const formInicial = {
   dataHoje: "",
@@ -17,7 +18,10 @@ const formInicial = {
   nome: "",
   cpf: "",
   telefone: "",
+  dataNascimento: "",
+  cns: "",
   cep: "",
+  microarea: "",
   endereco: "",
   numero: "",
   pontoReferencia: "",
@@ -32,7 +36,7 @@ const formInicial = {
   observacao: "",
 };
 
-const ORDEM_CAMPOS = ["dataHoje", "responsavel", "nome", "cpf", "telefone", "endereco", "numero", "trabalhador", "melhorHorario"];
+const ORDEM_CAMPOS = ["dataHoje", "responsavel", "nome", "cpf", "dataNascimento", "cns", "telefone", "endereco", "numero", "trabalhador", "melhorHorario"];
 
 // A API guarda a data em ISO (ex: 2026-08-25T00:00:00.000Z);
 // o <input type="date"> só aceita o formato yyyy-mm-dd.
@@ -53,6 +57,11 @@ function validar(form) {
   if (!form.nome.trim()) e.nome = "Informe o nome do paciente.";
   if (!form.cpf.trim()) e.cpf = "Informe o CPF.";
   else if (!cpfValido(form.cpf)) e.cpf = "CPF inválido. Confira os 11 dígitos.";
+  if (form.dataNascimento) {
+    const msg = erroNascimento(form.dataNascimento);
+    if (msg) e.dataNascimento = msg;
+  }
+  if (form.cns && !cnsValido(form.cns)) e.cns = "Cartão SUS inválido. Confira os 15 números.";
   if (!form.telefone.trim()) e.telefone = "Informe um telefone para contato.";
   else if (somenteDigitos(form.telefone).length < 10) e.telefone = "Telefone incompleto. Inclua o DDD.";
   if (!form.endereco.trim()) e.endereco = "Informe o endereço.";
@@ -77,6 +86,8 @@ function EquipeForm() {
   const [responsaveis, setResponsaveis] = useState([]);
   const [carregandoResponsaveis, setCarregandoResponsaveis] = useState(true);
   const [confirmarExclusao, setConfirmarExclusao] = useState(false);
+  const [microareas, setMicroareas] = useState([]);
+  const [avisoCep, setAvisoCep] = useState("");
   const [excluindo, setExcluindo] = useState(false);
 
   const urlLista = `/equipe/${encodeURIComponent(equipe)}`;
@@ -95,6 +106,39 @@ function EquipeForm() {
       .finally(() => setCarregandoResponsaveis(false));
   }, [equipe, id, user]);
 
+  // Microáreas da equipe (para o campo "Microárea").
+  useEffect(() => {
+    api
+      .get("/territorio")
+      .then((lista) => setMicroareas(lista.filter((m) => m.equipe === equipe)))
+      .catch(() => setMicroareas([]));
+  }, [equipe]);
+
+  // Ao completar o CEP, descobre a microárea pelo território.
+  const cepDigitos = somenteDigitos(form.cep);
+  useEffect(() => {
+    if (cepDigitos.length !== 8) {
+      setAvisoCep("");
+      return undefined;
+    }
+    let ativo = true;
+    api
+      .get(`/portal/cep/${cepDigitos}`, { auth: false })
+      .then((r) => {
+        if (!ativo) return;
+        if (!r.atendido) setAvisoCep("Este CEP não está no território cadastrado da UBS.");
+        else if (r.equipe !== equipe) setAvisoCep(`Este CEP é da equipe ${r.equipe}, ${rotuloMicroarea(r.microarea).toLowerCase()}.`);
+        else {
+          setAvisoCep("");
+          setForm((prev) => (prev.microarea ? prev : { ...prev, microarea: String(r.microarea) }));
+        }
+      })
+      .catch(() => ativo && setAvisoCep(""));
+    return () => {
+      ativo = false;
+    };
+  }, [cepDigitos, equipe]);
+
   useEffect(() => {
     if (!id) return;
     setCarregando(true);
@@ -106,6 +150,9 @@ function EquipeForm() {
           ...data,
           gruposAtencao: data.gruposAtencao || [],
           dataHoje: paraInputDate(data.dataHoje),
+          dataNascimento: paraInputDate(data.dataNascimento),
+          cns: data.cns || "",
+          microarea: data.microarea ? String(data.microarea) : "",
           cpf: formatarSeCompleto(data.cpf, 11, mascaraCPF),
           telefone: formatarSeCompleto(data.telefone, 10, mascaraTelefone),
           cep: formatarSeCompleto(data.cep, 8, mascaraCEP),
@@ -163,6 +210,8 @@ function EquipeForm() {
       moradoresHomens: Number(form.moradoresHomens) || 0,
       moradoresMulheres: Number(form.moradoresMulheres) || 0,
       moradoresCriancas: Number(form.moradoresCriancas) || 0,
+      dataNascimento: form.dataNascimento || null,
+      microarea: form.microarea ? Number(form.microarea) : null,
     };
 
     try {
@@ -283,6 +332,23 @@ function EquipeForm() {
                     />
                   )}
                 </Field>
+                <Field className="span-3" label="Data de nascimento" optional htmlFor="campo-dataNascimento" error={erros.dataNascimento}>
+                  {(props) => <input {...props} type="date" name="dataNascimento" value={form.dataNascimento} onChange={alterar} className="input" max={hojeISO()} />}
+                </Field>
+                <Field className="span-3" label="Cartão SUS (CNS)" optional htmlFor="campo-cns" error={erros.cns}>
+                  {(props) => (
+                    <input
+                      {...props}
+                      name="cns"
+                      value={form.cns}
+                      onChange={alterarComMascara(mascaraCNS)}
+                      className="input num"
+                      inputMode="numeric"
+                      placeholder="000 0000 0000 0000"
+                      autoComplete="off"
+                    />
+                  )}
+                </Field>
                 <Field className="span-3" label="Telefone" required htmlFor="campo-telefone" error={erros.telefone}>
                   {(props) => (
                     <input
@@ -303,7 +369,7 @@ function EquipeForm() {
 
             <Section title="Endereço">
               <div className="form-grid">
-                <Field className="span-2" label="CEP" optional htmlFor="campo-cep">
+                <Field className="span-2" label="CEP" optional htmlFor="campo-cep" hint={avisoCep || undefined}>
                   {(props) => (
                     <input
                       {...props}
@@ -334,6 +400,28 @@ function EquipeForm() {
                       placeholder="Ex.: ao lado da padaria"
                       autoComplete="off"
                     />
+                  )}
+                </Field>
+                <Field
+                  className="span-3"
+                  label="Microárea"
+                  optional
+                  htmlFor="campo-microarea"
+                  hint={microareas.length === 0 ? "A equipe ainda não tem microáreas cadastradas no território." : "Preenchida pelo CEP quando ele está no território."}
+                >
+                  {(props) => (
+                    <select {...props} name="microarea" value={form.microarea} onChange={alterar} className="select" disabled={microareas.length === 0 && !form.microarea}>
+                      <option value="">Sem microárea</option>
+                      {microareas.map((m) => (
+                        <option key={m._id} value={String(m.numero)}>
+                          {rotuloMicroarea(m.numero)}
+                          {m.agente?.nome ? ` · ACS ${m.agente.nome}` : ""}
+                        </option>
+                      ))}
+                      {form.microarea && !microareas.some((m) => String(m.numero) === form.microarea) && (
+                        <option value={form.microarea}>{rotuloMicroarea(form.microarea)}</option>
+                      )}
+                    </select>
                   )}
                 </Field>
               </div>

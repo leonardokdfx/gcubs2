@@ -6,7 +6,9 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "next lint",
+    "db:verificar": "node --env-file=.env.local scripts/preparar-banco.mjs --verificar",
+    "db:preparar": "node --env-file=.env.local scripts/preparar-banco.mjs"
   },
   "engines": {
     "node": ">=20"

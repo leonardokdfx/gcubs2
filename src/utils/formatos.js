@@ -90,3 +90,25 @@ export function normalizar(texto) {
     .replace(/[̀-ͯ]/g, "")
     .toLowerCase();
 }
+
+export function mascaraCNS(valor) {
+  const d = somenteDigitos(valor).slice(0, 15);
+  return [d.slice(0, 3), d.slice(3, 7), d.slice(7, 11), d.slice(11)].filter(Boolean).join(" ");
+}
+
+/** Valida o Cartão Nacional de Saúde (CNS), definitivo (1/2) ou provisório (7/8/9). */
+export function cnsValido(valor) {
+  const d = somenteDigitos(valor);
+  if (d.length !== 15 || !/^[12789]/.test(d)) return false;
+  const soma = d.split("").reduce((acc, n, i) => acc + Number(n) * (15 - i), 0);
+  return soma % 11 === 0;
+}
+
+/** Link do WhatsApp com mensagem pronta (telefone brasileiro com DDD). */
+export function linkWhatsApp(telefone, mensagem) {
+  const d = somenteDigitos(telefone);
+  if (d.length < 10) return null;
+  return `https://wa.me/55${d}?text=${encodeURIComponent(mensagem)}`;
+}
+
+export const rotuloMicroarea = (numero) => (numero ? `Microárea ${String(numero).padStart(2, "0")}` : "Sem microárea");

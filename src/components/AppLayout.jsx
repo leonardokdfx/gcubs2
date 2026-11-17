@@ -2,13 +2,14 @@
 
 import React, { useEffect, useRef, useState } from "react";
 import { Link, useLocation, useNavigate } from "../lib/router";
-import { House, Users, ChartColumn, Settings, LogOut, UserRound, ChevronDown, UserCog } from "lucide-react";
+import { House, Users, ChartColumn, Settings, LogOut, UserRound, ChevronDown, UserCog, CalendarPlus } from "lucide-react";
 import { useAuth } from "../auth/AuthContext";
 import { equipesDoUsuario, rotuloPapel } from "../constants/dominio";
 import { Avatar, BrandMark } from "./ui";
 import { useToast } from "./feedback";
 
 const INICIO = { to: "/dashboard", label: "Início", Icone: House, ativo: (p) => p === "/dashboard" };
+const PEDIDOS = { to: "/agendamentos", label: "Pedidos de cadastro", curto: "Pedidos", Icone: CalendarPlus, ativo: (p) => p.startsWith("/agendamentos") };
 const RELATORIOS = { to: "/relatorios", label: "Relatórios", Icone: ChartColumn, ativo: (p) => p.startsWith("/relatorios") };
 const USUARIOS = { to: "/config/usuarios", label: "Usuários", Icone: UserCog, ativo: (p) => p.startsWith("/config/usuarios") };
 const CONFIG = {
@@ -129,7 +130,7 @@ function AppLayout({ children, semNavInferior = false, estreito = false }) {
       }
     : null;
 
-  const itensInferiores = [INICIO, minhaEquipe, RELATORIOS, supervisor ? USUARIOS : null, CONFIG].filter(Boolean);
+  const itensInferiores = [INICIO, minhaEquipe, PEDIDOS, RELATORIOS, supervisor ? USUARIOS : null, CONFIG].filter(Boolean);
   const itensGestao = [RELATORIOS, supervisor ? USUARIOS : null, CONFIG].filter(Boolean);
 
   useEffect(() => {
@@ -164,6 +165,9 @@ function AppLayout({ children, semNavInferior = false, estreito = false }) {
         <ul className="nav-list">
           <li>
             <NavItem item={INICIO} pathname={pathname} className="nav-link" />
+          </li>
+          <li>
+            <NavItem item={PEDIDOS} pathname={pathname} className="nav-link" />
           </li>
         </ul>
 

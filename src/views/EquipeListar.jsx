@@ -2,7 +2,7 @@
 
 import React, { useEffect, useMemo, useState } from "react";
 import { useParams, useSearchParams, Link } from "../lib/router";
-import { Plus, Printer, Search, Pencil, Trash2, Phone, MapPin, Clock, Users, SearchX, RotateCw, X } from "lucide-react";
+import { Plus, Printer, Search, Pencil, Trash2, Phone, MapPin, MapPinned, Clock, Users, SearchX, RotateCw, X } from "lucide-react";
 import api from "../services/api";
 import AppLayout from "../components/AppLayout";
 import { Alert, Button, ButtonLink, EmptyState, PageHeader, Skeleton, StatusSelect } from "../components/ui";
@@ -18,6 +18,7 @@ import {
   normalizar,
   plural,
   primeiroNome,
+  rotuloMicroarea,
   somenteDigitos,
 } from "../utils/formatos";
 import { imprimirPacientes } from "../utils/imprimir";
@@ -63,6 +64,7 @@ function EquipeListar() {
   const [confirmandoExclusao, setConfirmandoExclusao] = useState(false);
 
   const filtro = FILTROS.some((f) => f.chave === searchParams.get("situacao")) ? searchParams.get("situacao") : "todos";
+  const filtroMicro = searchParams.get("microarea") || "";
 
   const carregarPacientes = () => {
     setCarregando(true);
@@ -81,17 +83,37 @@ function EquipeListar() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [equipe]);
 
+  // Microáreas presentes na lista (para o filtro).
+  const microareasDaLista = useMemo(
+    () => [...new Set(pacientes.map((p) => p.microarea).filter(Boolean))].sort((a, b) => a - b),
+    [pacientes]
+  );
+  const temSemMicro = pacientes.some((p) => !p.microarea);
+
+  const porMicro = useMemo(() => {
+    if (!filtroMicro) return pacientes;
+    if (filtroMicro === "sem") return pacientes.filter((p) => !p.microarea);
+    return pacientes.filter((p) => String(p.microarea) === filtroMicro);
+  }, [pacientes, filtroMicro]);
+
+  const definirMicro = (valor) => {
+    const params = new URLSearchParams(searchParams);
+    if (valor) params.set("microarea", valor);
+    else params.delete("microarea");
+    setSearchParams(params, { replace: true });
+  };
+
   const porBusca = useMemo(() => {
     const termo = normalizar(busca.trim());
-    if (!termo) return pacientes;
+    if (!termo) return porMicro;
     const digitos = somenteDigitos(busca);
-    return pacientes.filter(
+    return porMicro.filter(
       (p) =>
         normalizar(p.nome).includes(termo) ||
         normalizar(enderecoCompleto(p)).includes(termo) ||
         (digitos.length >= 3 && (somenteDigitos(p.cpf).includes(digitos) || somenteDigitos(p.telefone).includes(digitos)))
     );
-  }, [pacientes, busca]);
+  }, [porMicro, busca]);
 
   const contagem = useMemo(() => contarSituacoes(porBusca), [porBusca]);
   const contagemEquipe = useMemo(() => contarSituacoes(pacientes), [pacientes]);
@@ -237,6 +259,23 @@ function EquipeListar() {
                 </div>
               </div>
 
+              {microareasDaLista.length > 0 && (
+                <div className="toolbar__micro">
+                  <label htmlFor="filtro-microarea" className="sr-only">
+                    Filtrar por microárea
+                  </label>
+                  <select id="filtro-microarea" className="select" value={filtroMicro} onChange={(e) => definirMicro(e.target.value)}>
+                    <option value="">Todas as microáreas</option>
+                    {microareasDaLista.map((n) => (
+                      <option key={n} value={String(n)}>
+                        {rotuloMicroarea(n)} ({pacientes.filter((p) => p.microarea === n).length})
+                      </option>
+                    ))}
+                    {temSemMicro && <option value="sem">Sem microárea ({pacientes.filter((p) => !p.microarea).length})</option>}
+                  </select>
+                </div>
+              )}
+
               <div className="chips" role="group" aria-label="Filtrar por situação da visita">
                 {FILTROS.map((f) => (
                   <button
@@ -364,7 +403,10 @@ function EquipeListar() {
                             <Link to={urlEditar(p)} className="cell-primary" style={{ textDecoration: "none" }}>
                               {p.nome}
                             </Link>
-                            <div className="cell-secondary">{enderecoCompleto(p) || "Endereço não informado"}</div>
+                            <div className="cell-secondary">
+                              {enderecoCompleto(p) || "Endereço não informado"}
+                              {p.microarea ? ` · ${rotuloMicroarea(p.microarea)}` : ""}
+                            </div>
                           </td>
                           <td className="num" style={{ whiteSpace: "nowrap" }}>
                             {exibirCPF(p.cpf)}
@@ -450,6 +492,12 @@ function EquipeListar() {
                             <span aria-hidden="true">·</span>
                             <span className="num">CPF {exibirCPF(p.cpf)}</span>
                           </span>
+                          {p.microarea && (
+                            <span className="list-item__meta-row">
+                              <MapPinned aria-hidden="true" />
+                              <span>{rotuloMicroarea(p.microarea)}</span>
+                            </span>
+                          )}
                           {p.melhorHorario && (
                             <span className="list-item__meta-row">
                               <Clock aria-hidden="true" />

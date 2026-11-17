@@ -1,13 +1,14 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
-import { UserPlus, RotateCw, Users } from "lucide-react";
+import React, { useEffect, useRef, useState } from "react";
+import { Eye, Pencil, Save, Trash2, UserPlus, RotateCw, Users } from "lucide-react";
 import api from "../services/api";
 import AppLayout from "../components/AppLayout";
 import { Alert, Avatar, Button, EmptyState, Field, PageHeader, PasswordInput, Section, Skeleton, TeamIcon } from "../components/ui";
-import { useToast } from "../components/feedback";
+import { ConfirmDialog, useToast } from "../components/feedback";
 import { useDesktop } from "../hooks/dados";
 import { EQUIPES, getEquipe } from "../constants/dominio";
+import { useAuth } from "../auth/AuthContext";
 
 const formVazio = { nome: "", email: "", senha: "", role: "agente", equipe: "" };
 
@@ -28,6 +29,7 @@ function EquipeCelula({ nome }) {
 function GerenciarUsuarios() {
   const toast = useToast();
   const desktop = useDesktop();
+  const { user: usuarioLogado } = useAuth();
   const [usuarios, setUsuarios] = useState([]);
   const [carregando, setCarregando] = useState(true);
   const [erroLista, setErroLista] = useState("");
@@ -35,6 +37,12 @@ function GerenciarUsuarios() {
   const [erros, setErros] = useState({});
   const [enviando, setEnviando] = useState(false);
   const [form, setForm] = useState(formVazio);
+  const [editandoId, setEditandoId] = useState("");
+  const [usuarioVisualizado, setUsuarioVisualizado] = useState(null);
+  const [usuarioParaExcluir, setUsuarioParaExcluir] = useState(null);
+  const [excluindoId, setExcluindoId] = useState("");
+  const formularioRef = useRef(null);
+  const dialogVisualizarRef = useRef(null);
 
   const carregarUsuarios = () => {
     setCarregando(true);
@@ -50,10 +58,32 @@ function GerenciarUsuarios() {
     carregarUsuarios();
   }, []);
 
+  useEffect(() => {
+    const dialog = dialogVisualizarRef.current;
+    if (!dialog) return;
+    if (usuarioVisualizado && !dialog.open) dialog.showModal();
+    if (!usuarioVisualizado && dialog.open) dialog.close();
+  }, [usuarioVisualizado]);
+
   const alterar = (e) => {
     const { name, value } = e.target;
     setForm((prev) => ({ ...prev, [name]: value, ...(name === "role" && value === "supervisor" ? { equipe: "" } : {}) }));
     if (erros[name]) setErros((atual) => ({ ...atual, [name]: undefined }));
+  };
+
+  const iniciarEdicao = (usuario) => {
+    setEditandoId(usuario._id);
+    setForm({ nome: usuario.nome, email: usuario.email, senha: "", role: usuario.role, equipe: usuario.equipe || "" });
+    setErro("");
+    setErros({});
+    formularioRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+  };
+
+  const cancelarEdicao = () => {
+    setEditandoId("");
+    setForm(formVazio);
+    setErro("");
+    setErros({});
   };
 
   const handleSubmit = async (e) => {
@@ -63,7 +93,8 @@ function GerenciarUsuarios() {
     const novos = {};
     if (!form.nome.trim()) novos.nome = "Informe o nome completo.";
     if (!form.email.trim()) novos.email = "Informe o e-mail.";
-    if (!form.senha) novos.senha = "Defina uma senha provisória.";
+    if (!editandoId && !form.senha) novos.senha = "Defina uma senha provisória.";
+    if (editandoId && form.senha && form.senha.length < 6) novos.senha = "A nova senha deve ter pelo menos 6 caracteres.";
     if (form.role === "agente" && !form.equipe) novos.equipe = "Selecione a equipe do agente.";
     setErros(novos);
     const primeiro = ["nome", "email", "senha", "equipe"].find((k) => novos[k]);
@@ -74,16 +105,40 @@ function GerenciarUsuarios() {
 
     setEnviando(true);
     try {
-      await api.post("/auth/register", { ...form, nome: form.nome.trim(), email: form.email.trim() });
-      toast.sucesso(`${form.nome.trim()} foi cadastrado.`);
-      setForm(formVazio);
+      const payload = { ...form, nome: form.nome.trim(), email: form.email.trim() };
+      if (!payload.senha) delete payload.senha;
+      if (editandoId) {
+        await api.put(`/auth/usuarios/${editandoId}`, payload);
+        toast.sucesso(`${payload.nome} foi atualizado.`);
+      } else {
+        await api.post("/auth/register", payload);
+        toast.sucesso(`${payload.nome} foi cadastrado.`);
+      }
+      cancelarEdicao();
       carregarUsuarios();
     } catch (err) {
-      setErro(err.message || "Não foi possível cadastrar o usuário.");
+      setErro(err.message || "Não foi possível salvar o usuário.");
     } finally {
       setEnviando(false);
     }
   };
+
+  const excluirUsuario = async () => {
+    if (!usuarioParaExcluir) return;
+    setExcluindoId(usuarioParaExcluir._id);
+    try {
+      await api.delete(`/auth/usuarios/${usuarioParaExcluir._id}`);
+      toast.sucesso(`${usuarioParaExcluir.nome} foi excluído.`);
+      setUsuarioParaExcluir(null);
+      carregarUsuarios();
+    } catch (err) {
+      toast.erro(err.message || "Não foi possível excluir o usuário.");
+    } finally {
+      setExcluindoId("");
+    }
+  };
+
+  const ehUsuarioLogado = (usuario) => String(usuario._id) === String(usuarioLogado?.id || usuarioLogado?._id);
 
   return (
     <AppLayout>
@@ -94,7 +149,11 @@ function GerenciarUsuarios() {
       />
 
       <div className="stack">
-        <Section title="Cadastrar usuário" description="Informe uma senha provisória e peça para a pessoa trocá-la no primeiro acesso, em Meu perfil.">
+        <div ref={formularioRef} style={{ scrollMarginTop: 72 }}>
+        <Section
+          title={editandoId ? "Editar usuário" : "Cadastrar usuário"}
+          description={editandoId ? "Atualize os dados da conta. Deixe a nova senha em branco para mantê-la." : "Informe uma senha provisória e peça para a pessoa trocá-la no primeiro acesso, em Meu perfil."}
+        >
           <form onSubmit={handleSubmit} noValidate>
             <div className="form-grid">
               {erro && (
@@ -121,7 +180,7 @@ function GerenciarUsuarios() {
                   />
                 )}
               </Field>
-              <Field className="span-2" label="Senha provisória" required htmlFor="usuario-senha" error={erros.senha}>
+              <Field className="span-2" label={editandoId ? "Nova senha" : "Senha provisória"} required={!editandoId} optional={!!editandoId} htmlFor="usuario-senha" error={erros.senha}>
                 {(props) => <PasswordInput {...props} name="senha" value={form.senha} onChange={alterar} autoComplete="new-password" />}
               </Field>
               <fieldset className="fieldset field span-2">
@@ -153,14 +212,16 @@ function GerenciarUsuarios() {
                   )}
                 </Field>
               )}
-              <div style={{ display: "flex", justifyContent: "flex-end" }}>
-                <Button type="submit" variant="primary" icon={UserPlus} loading={enviando} loadingText="Cadastrando…" className="btn--block-mobile">
-                  Cadastrar usuário
+              <div style={{ display: "flex", justifyContent: "flex-end", gap: 8 }}>
+                {editandoId && <Button type="button" onClick={cancelarEdicao}>Cancelar</Button>}
+                <Button type="submit" variant="primary" icon={editandoId ? Save : UserPlus} loading={enviando} loadingText="Salvando…" className="btn--block-mobile">
+                  {editandoId ? "Salvar alterações" : "Cadastrar usuário"}
                 </Button>
               </div>
             </div>
           </form>
         </Section>
+        </div>
 
         <Section
           title="Usuários cadastrados"
@@ -197,6 +258,7 @@ function GerenciarUsuarios() {
                     <th scope="col">E-mail</th>
                     <th scope="col">Papel</th>
                     <th scope="col">Equipe</th>
+                    <th scope="col">Ações</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -214,6 +276,17 @@ function GerenciarUsuarios() {
                       </td>
                       <td>
                         <EquipeCelula nome={u.role === "supervisor" ? "" : u.equipe} />
+                      </td>
+                      <td>
+                        <div style={{ display: "flex", gap: 8 }}>
+                          <Button size="sm" icon={Eye} onClick={() => setUsuarioVisualizado(u)} aria-label={`Visualizar ${u.nome}`} title={`Visualizar ${u.nome}`} />
+                          {!ehUsuarioLogado(u) && (
+                            <>
+                            <Button size="sm" icon={Pencil} onClick={() => iniciarEdicao(u)} aria-label={`Editar ${u.nome}`} title={`Editar ${u.nome}`} />
+                            <Button size="sm" variant="danger" icon={Trash2} onClick={() => setUsuarioParaExcluir(u)} aria-label={`Excluir ${u.nome}`} title={`Excluir ${u.nome}`} />
+                            </>
+                          )}
+                        </div>
                       </td>
                     </tr>
                   ))}
@@ -236,6 +309,21 @@ function GerenciarUsuarios() {
                       <PapelTag role={u.role} />
                       {u.role !== "supervisor" && u.equipe && <span className="tag">Equipe {u.equipe}</span>}
                     </div>
+                    <div style={{ display: "flex", gap: 8, marginTop: 12 }}>
+                      <Button size="sm" icon={Eye} onClick={() => setUsuarioVisualizado(u)}>
+                        Visualizar
+                      </Button>
+                      {!ehUsuarioLogado(u) && (
+                        <>
+                        <Button size="sm" icon={Pencil} onClick={() => iniciarEdicao(u)}>
+                          Editar
+                        </Button>
+                        <Button size="sm" variant="danger" icon={Trash2} onClick={() => setUsuarioParaExcluir(u)}>
+                          Excluir
+                        </Button>
+                        </>
+                      )}
+                    </div>
                   </div>
                 </li>
               ))}
@@ -243,6 +331,49 @@ function GerenciarUsuarios() {
           )}
         </Section>
       </div>
+      <dialog
+        ref={dialogVisualizarRef}
+        className="dialog"
+        aria-labelledby="visualizar-usuario-titulo"
+        onCancel={(event) => {
+          event.preventDefault();
+          setUsuarioVisualizado(null);
+        }}
+        onClick={(event) => {
+          if (event.target === dialogVisualizarRef.current) setUsuarioVisualizado(null);
+        }}
+      >
+        {usuarioVisualizado && (
+          <>
+            <div className="dialog__body">
+              <Avatar nome={usuarioVisualizado.nome} foto={usuarioVisualizado.foto} size={48} />
+              <div>
+                <h2 className="dialog__title" id="visualizar-usuario-titulo">Dados do usuário</h2>
+                <div className="dialog__text">
+                  <p><strong>Nome:</strong> {usuarioVisualizado.nome}</p>
+                  <p><strong>E-mail:</strong> {usuarioVisualizado.email}</p>
+                  <p><strong>Perfil:</strong> {usuarioVisualizado.role === "supervisor" ? "Supervisor" : "Agente (ACS)"}</p>
+                  <p><strong>Equipe:</strong> {usuarioVisualizado.role === "supervisor" ? "Todas as equipes" : usuarioVisualizado.equipe}</p>
+                </div>
+              </div>
+            </div>
+            <div className="dialog__footer">
+              <Button variant="primary" onClick={() => setUsuarioVisualizado(null)}>Fechar</Button>
+            </div>
+          </>
+        )}
+      </dialog>
+      <ConfirmDialog
+        open={!!usuarioParaExcluir}
+        title="Excluir usuário?"
+        confirmLabel="Excluir usuário"
+        danger
+        loading={!!excluindoId}
+        onCancel={() => setUsuarioParaExcluir(null)}
+        onConfirm={excluirUsuario}
+      >
+        {usuarioParaExcluir && <>O usuário <strong>{usuarioParaExcluir.nome}</strong> será removido. Essa ação não pode ser desfeita.</>}
+      </ConfirmDialog>
     </AppLayout>
   );
 }

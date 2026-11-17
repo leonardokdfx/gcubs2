@@ -1,9 +1,10 @@
 "use client";
 
-import React from "react";
+import React, { useEffect, useState } from "react";
 import { Link } from "../lib/router";
-import { ChevronRight, Plus, Users, UserCog, RotateCw, ChartColumn, MapPin, Clock, Phone, CircleCheck } from "lucide-react";
+import { ChevronRight, Plus, Users, UserCog, RotateCw, ChartColumn, MapPin, Clock, Phone, CircleCheck, CalendarPlus } from "lucide-react";
 import { useAuth } from "../auth/AuthContext";
+import api from "../services/api";
 import AppLayout from "../components/AppLayout";
 import { Alert, Button, ButtonLink, EmptyState, PageHeader, Section, Skeleton, TeamIcon } from "../components/ui";
 import { StatusBar, StatusLegend } from "../components/StatusBar";
@@ -13,6 +14,39 @@ import { enderecoCompleto, exibirTelefone, hrefTelefone, plural, primeiroNome } 
 
 const urlEquipe = (nome, filtro) =>
   `/equipe/${encodeURIComponent(nome)}${filtro ? `?situacao=${filtro}` : ""}`;
+
+/** Avisa quantos pedidos de cadastro feitos pelos pacientes esperam confirmação. */
+function AvisoPedidos() {
+  const [novos, setNovos] = useState(0);
+  useEffect(() => {
+    let ativo = true;
+    api
+      .get("/agendamentos")
+      .then((lista) => {
+        if (ativo) setNovos(lista.filter((p) => p.situacao === "Aguardando").length);
+      })
+      .catch(() => {});
+    return () => {
+      ativo = false;
+    };
+  }, []);
+
+  if (novos === 0) return null;
+  return (
+    <Alert
+      type="info"
+      title={novos === 1 ? "1 pedido de cadastro aguardando" : `${novos} pedidos de cadastro aguardando`}
+      action={
+        <ButtonLink to="/agendamentos" size="sm" icon={CalendarPlus}>
+          Ver pedidos
+        </ButtonLink>
+      }
+      className="mb-section"
+    >
+      Pacientes pediram cadastro pela área do paciente e esperam a confirmação da visita.
+    </Alert>
+  );
+}
 
 /** Painel de uma equipe: total, pendentes e barra de andamento. */
 function PainelEquipe({ item, destaque = false }) {
@@ -194,6 +228,8 @@ function Dashboard() {
           ) : null
         }
       />
+
+      <AvisoPedidos />
 
       {erro && (
         <Alert

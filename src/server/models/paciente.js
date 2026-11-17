@@ -9,6 +9,8 @@ const PacienteSchema = new mongoose.Schema({
   nome: { type: String, required: true },
   cpf: { type: String, required: true, unique: true },
   telefone: { type: String, required: true },
+  dataNascimento: { type: Date },
+  cns: { type: String }, // Cartão Nacional de Saúde
 
   // Endereço
   cep: { type: String },
@@ -39,6 +41,7 @@ const PacienteSchema = new mongoose.Schema({
     enum: ["Ar", "Fogo", "Terra", "Água", "Sol"],
     required: true
   },
+  microarea: { type: Number, min: 1, max: 99 },
   status: {
     type: String,
     enum: ["", "Visita realizada", "Visita realizada - paciente ausente", "Não mora"],
