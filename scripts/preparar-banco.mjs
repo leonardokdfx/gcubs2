@@ -4,15 +4,23 @@
 // Uso (na pasta web):
 //   npm run db:verificar   → só mostra o que existe e o que falta (não grava)
 //   npm run db:preparar    → cria o que falta
+import { register } from "node:module";
 import mongoose from "mongoose";
-import User from "../src/server/models/user.js";
-import Paciente from "../src/server/models/paciente.js";
-import Agendamento from "../src/server/models/agendamento.js";
-import Microarea from "../src/server/models/microarea.js";
-import Setor from "../src/server/models/setor.js";
-import Equipe from "../src/server/models/equipe.js";
 
-const MODELOS = [User, Paciente, Agendamento, Microarea, Setor, Equipe];
+// Os modelos usam o atalho "@/" do Next.js; o resolvedor traduz para src/.
+register("./resolver-alias.mjs", import.meta.url);
+const modelo = async (nome) => (await import(`../src/server/models/${nome}.js`)).default;
+
+const MODELOS = [
+  await modelo("user"),
+  await modelo("paciente"),
+  await modelo("agendamento"),
+  await modelo("microarea"),
+  await modelo("setor"),
+  await modelo("equipe"),
+  await modelo("presenca"),
+  await modelo("avisoConsulta"),
+];
 const soVerificar = process.argv.includes("--verificar");
 
 if (!process.env.MONGO_URI) {
