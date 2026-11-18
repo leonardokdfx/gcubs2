@@ -36,7 +36,7 @@ function Login() {
     try {
       const data = await api.post("/auth/login", { email: email.trim(), senha }, { auth: false });
       login(data.token, data.user);
-      navigate("/dashboard");
+      navigate(data.user?.role === "setor" ? "/setor" : "/dashboard");
     } catch (err) {
       setErro(err.message || "E-mail ou senha inválidos.");
     } finally {

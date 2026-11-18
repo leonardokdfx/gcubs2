@@ -1,7 +1,7 @@
 import Microarea from "./models/microarea";
 import User from "./models/user";
 import { HttpError, equipesAceitas } from "./http";
-import { EQUIPES } from "./constantes";
+import { equipeExiste } from "./equipes";
 import { lerListaCeps } from "@/utils/agendamento";
 import { mascaraCEP, rotuloMicroarea, somenteDigitos } from "@/utils/formatos";
 
@@ -43,7 +43,7 @@ export async function cepsEmOutraMicroarea(ceps, ignorarId) {
 /** Valida e normaliza os dados de uma microárea enviados pelo supervisor. */
 export async function dadosDaMicroarea(body, ignorarId) {
   const equipe = body.equipe;
-  if (!EQUIPES.includes(equipe)) throw new HttpError(400, "Selecione a equipe");
+  if (!(await equipeExiste(equipe))) throw new HttpError(400, "Selecione a equipe");
   const numero = Number(body.numero);
   if (!Number.isInteger(numero) || numero < 1 || numero > 99) throw new HttpError(400, "O número da microárea vai de 1 a 99");
 

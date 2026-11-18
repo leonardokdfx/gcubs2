@@ -7,7 +7,7 @@ export const dynamic = "force-dynamic";
 
 // GET /api/territorio — microáreas visíveis ao usuário (agente: só a própria equipe).
 export const GET = rota(async (req) => {
-  const user = autenticar(req);
+  const user = await autenticar(req);
   const filtro = user.role === "supervisor" ? {} : { equipe: { $in: equipesAceitas(user.equipe) } };
   const lista = await Microarea.find(filtro).populate("agente", "nome").sort({ equipe: 1, numero: 1 });
   return json(lista);
@@ -15,7 +15,7 @@ export const GET = rota(async (req) => {
 
 // POST /api/territorio — cria uma microárea (supervisor).
 export const POST = rota(async (req) => {
-  const user = autenticar(req);
+  const user = await autenticar(req);
   apenasSupervisor(user);
   const dados = await dadosDaMicroarea(await lerCorpo(req));
   try {

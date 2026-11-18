@@ -7,6 +7,7 @@ import AppLayout from "../components/AppLayout";
 import { Alert, Avatar, Button, ButtonLink, Field, PageHeader, PasswordInput, Section } from "../components/ui";
 import { useToast } from "../components/feedback";
 import { rotuloPapel } from "../constants/dominio";
+import { REQUISITOS_SENHA, erroSenha } from "../utils/senha";
 
 function Perfil() {
   const { user, atualizarUser } = useAuth();
@@ -38,9 +39,10 @@ function Perfil() {
     if (!perfil.nome.trim()) novos.nome = "Informe seu nome.";
     if (!perfil.email.trim()) novos.email = "Informe seu e-mail.";
     if (perfil.novaSenha && !perfil.senhaAtual) novos.senhaAtual = "Informe a senha atual para definir uma nova senha.";
+    if (perfil.novaSenha && erroSenha(perfil.novaSenha)) novos.novaSenha = erroSenha(perfil.novaSenha);
     if (perfil.novaSenha && perfil.novaSenha !== perfil.confirmarSenha) novos.confirmarSenha = "As senhas não coincidem.";
     setErros(novos);
-    const primeiro = ["nome", "email", "senhaAtual", "confirmarSenha"].find((k) => novos[k]);
+    const primeiro = ["nome", "email", "senhaAtual", "novaSenha", "confirmarSenha"].find((k) => novos[k]);
     if (primeiro) {
       document.getElementById(`perfil-${primeiro}`)?.focus();
       return;
@@ -132,7 +134,7 @@ function Perfil() {
               <Field label="Senha atual" htmlFor="perfil-senhaAtual" error={erros.senhaAtual}>
                 {(props) => <PasswordInput {...props} name="senhaAtual" value={perfil.senhaAtual} onChange={alterar} autoComplete="current-password" />}
               </Field>
-              <Field className="span-3" label="Nova senha" htmlFor="perfil-novaSenha">
+              <Field className="span-3" label="Nova senha" htmlFor="perfil-novaSenha" error={erros.novaSenha} hint={REQUISITOS_SENHA.map((r) => r.texto).join(" · ")}>
                 {(props) => <PasswordInput {...props} name="novaSenha" value={perfil.novaSenha} onChange={alterar} autoComplete="new-password" />}
               </Field>
               <Field className="span-3" label="Confirmar nova senha" htmlFor="perfil-confirmarSenha" error={erros.confirmarSenha}>

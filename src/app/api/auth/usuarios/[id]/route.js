@@ -3,13 +3,15 @@ import mongoose from "mongoose";
 import User from "@/server/models/user";
 import Paciente from "@/server/models/paciente";
 import { apenasSupervisor, autenticar, json, lerCorpo, rota } from "@/server/http";
+import { CHAVES_SETORES } from "@/utils/setores";
+import { equipeExiste } from "@/server/equipes";
+import { erroSenha } from "@/utils/senha";
 
-const equipes = ["Ar", "Fogo", "Terra", "Água", "Sol"];
 
 export const dynamic = "force-dynamic";
 
 export const PUT = rota(async (req, { id }) => {
-  const supervisor = autenticar(req);
+  const supervisor = await autenticar(req);
   apenasSupervisor(supervisor);
 
   if (!mongoose.isValidObjectId(id)) return json({ message: "Usuário inválido" }, 400);
@@ -20,21 +22,25 @@ export const PUT = rota(async (req, { id }) => {
   const user = await User.findById(id);
   if (!user) return json({ message: "Usuário não encontrado" }, 404);
 
-  const { nome: nomeRecebido, email: emailRecebido, role, equipe, senha } = await lerCorpo(req);
+  const { nome: nomeRecebido, email: emailRecebido, role, equipe, senha, setores } = await lerCorpo(req);
   const nome = typeof nomeRecebido === "string" ? nomeRecebido.trim() : "";
   const email = typeof emailRecebido === "string" ? emailRecebido.trim().toLowerCase() : "";
 
   if (!nome || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
     return json({ message: "Informe um nome e um e-mail válido" }, 400);
   }
-  if (!["agente", "supervisor"].includes(role)) {
+  if (!["agente", "supervisor", "setor"].includes(role)) {
     return json({ message: "Papel de usuário inválido" }, 400);
   }
-  if (role === "agente" && !equipes.includes(equipe)) {
+  const setoresFinal = role === "setor" ? [...new Set((Array.isArray(setores) ? setores : []).filter((s) => CHAVES_SETORES.includes(s)))] : undefined;
+  if (role === "setor" && setoresFinal.length === 0) {
+    return json({ message: "Escolha os setores que esta conta atualiza" }, 400);
+  }
+  if (role === "agente" && !(await equipeExiste(equipe))) {
     return json({ message: "Selecione uma equipe válida para o agente" }, 400);
   }
-  if (senha !== undefined && (typeof senha !== "string" || senha.length < 6)) {
-    return json({ message: "A senha deve ter pelo menos 6 caracteres" }, 400);
+  if (senha !== undefined && senha !== "" && erroSenha(senha)) {
+    return json({ message: erroSenha(senha) }, 400);
   }
 
   const emailEmUso = await User.findOne({ email, _id: { $ne: user._id } });
@@ -71,6 +77,7 @@ export const PUT = rota(async (req, { id }) => {
   user.email = email;
   user.role = role;
   user.equipe = role === "agente" ? equipe : undefined;
+  user.setores = setoresFinal;
   if (senha) user.senha = await bcrypt.hash(senha, await bcrypt.genSalt(10));
   await user.save();
 
@@ -85,7 +92,7 @@ export const PUT = rota(async (req, { id }) => {
 });
 
 export const DELETE = rota(async (req, { id }) => {
-  const supervisor = autenticar(req);
+  const supervisor = await autenticar(req);
   apenasSupervisor(supervisor);
 
   if (!mongoose.isValidObjectId(id)) return json({ message: "Usuário inválido" }, 400);

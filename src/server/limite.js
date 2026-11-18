@@ -20,3 +20,31 @@ export function limitar(chave, max, janelaMs) {
     for (const [k, v] of janelas) if (agora - v.inicio > janelaMs) janelas.delete(k);
   }
 }
+
+/**
+ * Bloqueio por falhas (ex.: senha errada): só as falhas contam.
+ * `verificarFalhas` lança 429 se a chave já passou do máximo na janela;
+ * `registrarFalha` soma uma falha; `limparFalhas` zera depois de um acerto.
+ */
+const falhas = globalThis.__falhas ?? (globalThis.__falhas = new Map());
+
+export function verificarFalhas(chave, max, janelaMs) {
+  const atual = falhas.get(chave);
+  if (atual && Date.now() - atual.inicio <= janelaMs && atual.total >= max) {
+    throw new HttpError(429, "Muitas tentativas sem sucesso. Aguarde 15 minutos e tente de novo.");
+  }
+}
+
+export function registrarFalha(chave, janelaMs) {
+  const agora = Date.now();
+  const atual = falhas.get(chave);
+  if (!atual || agora - atual.inicio > janelaMs) falhas.set(chave, { inicio: agora, total: 1 });
+  else atual.total += 1;
+  if (falhas.size > 5000) {
+    for (const [k, v] of falhas) if (agora - v.inicio > janelaMs) falhas.delete(k);
+  }
+}
+
+export function limparFalhas(chave) {
+  falhas.delete(chave);
+}

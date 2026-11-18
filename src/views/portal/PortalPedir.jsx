@@ -7,7 +7,7 @@ import PortalLayout from "../../components/PortalLayout";
 import { Alert, Button, ButtonLink, Field, PageHeader, Section, Stepper } from "../../components/ui";
 import { GRUPOS_ATENCAO } from "../../constants/dominio";
 import { mascaraCEP, mascaraCNS, mascaraCPF, mascaraTelefone, somenteDigitos } from "../../utils/formatos";
-import { PERIODOS, exibirData, hojeNoFuso, limitesData, validarPedido } from "../../utils/agendamento";
+import { PERIODOS, exibirData, hojeNoFuso, horariosDoPeriodo, limitesData, periodoDoHorario, validarPedido } from "../../utils/agendamento";
 
 const formInicial = {
   nome: "",
@@ -15,12 +15,11 @@ const formInicial = {
   dataNascimento: "",
   cns: "",
   telefone: "",
+  outroTelefone: "",
   cep: "",
   endereco: "",
   numero: "",
   pontoReferencia: "",
-  trabalhador: "",
-  enderecoMoradia: "",
   melhorHorario: "",
   moradoresHomens: 0,
   moradoresMulheres: 0,
@@ -40,16 +39,16 @@ const ORDEM = [
   "dataNascimento",
   "cns",
   "telefone",
+  "outroTelefone",
   "dataPreferida",
   "periodoPreferido",
+  "melhorHorario",
   "endereco",
   "numero",
-  "trabalhador",
-  "melhorHorario",
   "consentimento",
 ];
 
-const MASCARAS = { cpf: mascaraCPF, telefone: mascaraTelefone, cns: mascaraCNS };
+const MASCARAS = { cpf: mascaraCPF, telefone: mascaraTelefone, outroTelefone: mascaraTelefone, cns: mascaraCNS };
 
 /** Grupo de opções (radio) com rótulo e erro, no padrão do formulário de paciente. */
 function Escolha({ nome, rotulo, opcoes, valor, onChange, erro }) {
@@ -166,7 +165,7 @@ function EtapaCep({ onAtendido }) {
   );
 }
 
-function PedidoEnviado({ resultado, dataPreferida, periodo }) {
+function PedidoEnviado({ resultado, dataPreferida, periodo, horario }) {
   return (
     <div className="stack">
       <div className="paper protocolo">
@@ -180,7 +179,7 @@ function PedidoEnviado({ resultado, dataPreferida, periodo }) {
         </p>
         <p className="protocolo__texto">
           Seu pedido foi para a <strong>equipe {resultado.equipe}</strong>. O agente comunitário de saúde da sua área vai
-          confirmar a visita por telefone ou WhatsApp. Você pediu {exibirData(`${dataPreferida}T00:00:00Z`)}, {periodo.toLowerCase()}.
+          confirmar a visita por telefone ou WhatsApp. Você pediu {exibirData(`${dataPreferida}T00:00:00Z`)}, {periodo.toLowerCase()}, por volta das {horario}.
         </p>
       </div>
       <div className="action-bar" style={{ position: "static" }}>
@@ -221,8 +220,16 @@ function PortalPedir() {
   const alterar = (e) => {
     const { name, value, type, checked } = e.target;
     const valor = type === "checkbox" ? checked : MASCARAS[name] ? MASCARAS[name](value) : value;
-    setForm((f) => ({ ...f, [name]: valor }));
-    if (erros[name]) setErros((atual) => ({ ...atual, [name]: undefined }));
+    setForm((f) => {
+      const novo = { ...f, [name]: valor };
+      // Período e horário andam juntos: trocar o período limpa um horário do outro período,
+      // e escolher o horário antes do período já marca o período certo.
+      if (name === "periodoPreferido" && f.melhorHorario && periodoDoHorario(f.melhorHorario) !== valor) novo.melhorHorario = "";
+      if (name === "melhorHorario" && valor) novo.periodoPreferido = periodoDoHorario(valor);
+      return novo;
+    });
+    if (erros[name] || (name === "melhorHorario" && erros.periodoPreferido))
+      setErros((atual) => ({ ...atual, [name]: undefined, ...(name === "melhorHorario" ? { periodoPreferido: undefined } : {}) }));
   };
 
   const alternarGrupo = (grupo) =>
@@ -276,7 +283,7 @@ function PortalPedir() {
       </div>
 
       {resultado ? (
-        <PedidoEnviado resultado={resultado} dataPreferida={form.dataPreferida} periodo={form.periodoPreferido} />
+        <PedidoEnviado resultado={resultado} dataPreferida={form.dataPreferida} periodo={form.periodoPreferido} horario={form.melhorHorario} />
       ) : !territorio ? (
         <EtapaCep onAtendido={cepAtendido} />
       ) : (
@@ -322,6 +329,11 @@ function PortalPedir() {
                     <input {...props} name="telefone" type="tel" className="input num" value={form.telefone} onChange={alterar} inputMode="tel" placeholder="(61) 90000-0000" autoComplete="tel-national" />
                   )}
                 </Field>
+                <Field className="span-3" label="Outro telefone" optional htmlFor="campo-outroTelefone" error={erros.outroTelefone} hint="De um familiar ou fixo, caso o agente não consiga falar com você.">
+                  {(props) => (
+                    <input {...props} name="outroTelefone" type="tel" className="input num" value={form.outroTelefone} onChange={alterar} inputMode="tel" placeholder="(61) 90000-0000" autoComplete="off" />
+                  )}
+                </Field>
               </div>
             </Section>
 
@@ -335,6 +347,18 @@ function PortalPedir() {
                 <div className="span-3">
                   <Escolha nome="periodoPreferido" rotulo="Período" opcoes={PERIODOS} valor={form.periodoPreferido} onChange={alterar} erro={erros.periodoPreferido} />
                 </div>
+                <Field className="span-3" label="Horário que você prefere" required htmlFor="campo-melhorHorario" error={erros.melhorHorario} hint="O agente tenta chegar perto deste horário.">
+                  {(props) => (
+                    <select {...props} name="melhorHorario" className="select" value={form.melhorHorario} onChange={alterar}>
+                      <option value="">Escolha…</option>
+                      {horariosDoPeriodo(form.periodoPreferido).map((h) => (
+                        <option key={h} value={h}>
+                          {h}
+                        </option>
+                      ))}
+                    </select>
+                  )}
+                </Field>
               </div>
             </Section>
 
@@ -348,22 +372,6 @@ function PortalPedir() {
                 </Field>
                 <Field label="Ponto de referência" optional htmlFor="campo-pontoReferencia">
                   {(props) => <input {...props} name="pontoReferencia" className="input" value={form.pontoReferencia} onChange={alterar} autoComplete="off" />}
-                </Field>
-              </div>
-            </Section>
-
-            <Section title="Trabalho e horário">
-              <div className="form-grid">
-                <Escolha nome="trabalhador" rotulo="Você trabalha fora de casa?" opcoes={["Sim", "Não"]} valor={form.trabalhador} onChange={alterar} erro={erros.trabalhador} />
-                {form.trabalhador === "Sim" && (
-                  <Field label="Endereço de moradia" optional htmlFor="campo-enderecoMoradia" hint="Se você mora em outro endereço, diferente do informado acima.">
-                    {(props) => <input {...props} name="enderecoMoradia" className="input" value={form.enderecoMoradia} onChange={alterar} />}
-                  </Field>
-                )}
-                <Field label="Melhor horário para receber o agente" required htmlFor="campo-melhorHorario" error={erros.melhorHorario}>
-                  {(props) => (
-                    <input {...props} name="melhorHorario" className="input" value={form.melhorHorario} onChange={alterar} placeholder="Ex.: depois das 14h" autoComplete="off" />
-                  )}
                 </Field>
               </div>
             </Section>
@@ -403,7 +411,7 @@ function PortalPedir() {
                 <Field className="span-3" label="Número do SES" optional htmlFor="campo-numeroSES">
                   {(props) => <input {...props} name="numeroSES" className="input" value={form.numeroSES} onChange={alterar} autoComplete="off" />}
                 </Field>
-                <Field label="Algo que o agente precisa saber?" optional htmlFor="campo-observacao">
+                <Field label="Motivo da solicitação de cadastro" optional htmlFor="campo-observacao" hint="Ex.: mudei para este endereço, preciso marcar consulta, estou grávida.">
                   {(props) => <textarea {...props} name="observacao" className="textarea" rows={3} value={form.observacao} onChange={alterar} />}
                 </Field>
               </div>
@@ -413,7 +421,7 @@ function PortalPedir() {
               <p className="lgpd__texto">
                 Seus dados são usados somente pela equipe de Saúde da Família desta UBS para fazer o seu cadastro e marcar a
                 visita, conforme a Lei Geral de Proteção de Dados (Lei nº 13.709/2018). Eles não são compartilhados com
-                terceiros. Se não quiser mais a visita, você pode cancelar o pedido a qualquer momento em "Acompanhar meu pedido".
+                terceiros. Se não quiser mais a visita, você pode cancelar o pedido a qualquer momento em "Acompanhamento".
               </p>
               <label className="choice" style={{ alignItems: "flex-start" }}>
                 <input type="checkbox" id="campo-consentimento" name="consentimento" checked={form.consentimento} onChange={alterar} aria-invalid={erros.consentimento ? true : undefined} aria-describedby={erros.consentimento ? "erro-consentimento" : undefined} />

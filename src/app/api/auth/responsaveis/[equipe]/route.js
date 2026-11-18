@@ -5,7 +5,7 @@ export const dynamic = "force-dynamic";
 
 // Agentes cadastrados e vinculados à equipe.
 export const GET = rota(async (req, { equipe }) => {
-  const user = autenticar(req);
+  const user = await autenticar(req);
   if (user.role !== "supervisor" && normalizarEquipe(user.equipe) !== normalizarEquipe(equipe)) {
     return json({ message: "Você não tem acesso a esta equipe" }, 403);
   }

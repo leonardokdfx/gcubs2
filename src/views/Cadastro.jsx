@@ -6,13 +6,9 @@ import { Check, Circle } from "lucide-react";
 import api from "../services/api";
 import AuthLayout from "../components/AuthLayout";
 import { Alert, Button, ButtonLink, Field, PasswordInput, Skeleton } from "../components/ui";
+import { REQUISITOS_SENHA } from "../utils/senha";
 
-const REQUISITOS = [
-  { id: "tamanho", texto: "Pelo menos 6 caracteres", testa: (s) => s.length >= 6 },
-  { id: "maiuscula", texto: "Uma letra maiúscula", testa: (s) => /[A-Z]/.test(s) },
-  { id: "minuscula", texto: "Uma letra minúscula", testa: (s) => /[a-z]/.test(s) },
-  { id: "especial", texto: "Um caractere especial (ex.: ! @ # $)", testa: (s) => /[^a-zA-Z0-9]/.test(s) },
-];
+const REQUISITOS = REQUISITOS_SENHA;
 
 function Cadastro() {
   const [form, setForm] = useState({ nome: "", email: "", senha: "", confirmaSenha: "" });

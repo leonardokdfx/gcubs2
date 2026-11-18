@@ -2,15 +2,109 @@
 import { cnsValido, cpfValido, mascaraCEP, somenteDigitos } from "./formatos";
 
 export const PERIODOS = ["Manhã", "Tarde"];
+
+/** Horários fixos que o paciente pode escolher para a visita (das 7h às 18h). */
+export const HORARIOS = Array.from({ length: 12 }, (_, i) => `${String(7 + i).padStart(2, "0")}:00`);
+
+/** Período do dia de um horário fixo: até 12:00 é manhã, depois é tarde. */
+export function periodoDoHorario(horario) {
+  if (!HORARIOS.includes(horario)) return "";
+  return Number(horario.slice(0, 2)) <= 12 ? "Manhã" : "Tarde";
+}
+
+/** Horários disponíveis para o período escolhido (todos, se ainda não escolheu). */
+export function horariosDoPeriodo(periodo) {
+  return PERIODOS.includes(periodo) ? HORARIOS.filter((h) => periodoDoHorario(h) === periodo) : HORARIOS;
+}
 export const DIAS_ANTECEDENCIA_MAX = 60;
 
-/** Situações do pedido, com o visual da tag (reaproveita as cores de situação da visita). */
+/**
+ * Situações do pedido, com o visual da tag (reaproveita as cores de situação da visita).
+ * Fluxo: Aguardando → Confirmado → ACaminho → Cadastrado (visita realizada).
+ * Paciente ausente volta para remarcar (Ausente → Confirmado) até MAX_TENTATIVAS.
+ * Recusada e Cancelado encerram o pedido.
+ */
 export const SITUACOES_AGENDAMENTO = {
-  Aguardando: { rotulo: "Aguardando confirmação", curto: "Novos", tag: "pendente" },
-  Confirmado: { rotulo: "Visita confirmada", curto: "Confirmados", tag: "primary" },
-  Cadastrado: { rotulo: "Cadastro concluído", curto: "Concluídos", tag: "realizada" },
+  Aguardando: { rotulo: "Aguardando agendamento", curto: "Novos", tag: "pendente" },
+  Confirmado: { rotulo: "Visita marcada", curto: "Marcados", tag: "primary" },
+  ACaminho: { rotulo: "Agente a caminho", curto: "A caminho", tag: "caminho" },
+  Ausente: { rotulo: "Paciente ausente", curto: "Remarcar", tag: "ausente" },
+  Cadastrado: { rotulo: "Visita realizada", curto: "Realizadas", tag: "realizada" },
+  Recusada: { rotulo: "Visita recusada", curto: "Recusadas", tag: "naomora" },
   Cancelado: { rotulo: "Cancelado", curto: "Cancelados", tag: "naomora" },
 };
+
+/** Pedidos que ainda esperam alguma ação da equipe (o paciente ainda pode cancelar). */
+export const EM_ANDAMENTO = ["Aguardando", "Confirmado", "ACaminho", "Ausente"];
+
+/** Depois de tantas visitas sem encontrar ninguém, o pedido é encerrado (como nos Correios). */
+export const MAX_TENTATIVAS = 3;
+
+/** Resultados que o ACS registra depois de ir à casa (os mesmos do e-SUS: realizada, ausente, recusada). */
+export const RESULTADOS_VISITA = ["realizada", "ausente", "recusada"];
+
+/** Etapas da barra de progresso do rastreio. */
+export const ETAPAS_RASTREIO = ["Pedido recebido", "Visita marcada", "Agente a caminho", "Visita realizada"];
+
+/**
+ * Onde o pedido está na barra de progresso: { atual, estado }.
+ * estado: "andamento" | "alerta" (ausente) | "concluido" | "interrompido" (recusada/cancelado).
+ */
+export function etapaDoPedido(pedido) {
+  switch (pedido?.situacao) {
+    case "Confirmado":
+      return { atual: 1, estado: "andamento" };
+    case "Ausente":
+      return { atual: 2, estado: "alerta" };
+    case "ACaminho":
+      return { atual: 2, estado: "andamento" };
+    case "Cadastrado":
+      return { atual: 3, estado: "concluido" };
+    case "Recusada":
+      return { atual: 3, estado: "interrompido" };
+    case "Cancelado": {
+      const marcada = (pedido.historico || []).some((e) => e.tipo === "agendado") || !!pedido.dataAgendada;
+      return { atual: marcada ? 2 : 1, estado: "interrompido" };
+    }
+    default:
+      return { atual: 0, estado: "andamento" };
+  }
+}
+
+/** "1ª", "2ª"… */
+export const ordinal = (n) => `${n}ª`;
+
+/**
+ * Eventos do rastreio, mais recentes primeiro. Pedidos feitos antes do histórico
+ * existir ganham uma linha do tempo mínima, montada a partir das datas do pedido.
+ */
+export function linhaDoTempo(pedido) {
+  if (!pedido) return [];
+  let eventos = Array.isArray(pedido.historico) ? [...pedido.historico] : [];
+  if (eventos.length === 0) {
+    eventos = [{ tipo: "recebido", em: pedido.criadoEm }];
+    const quando = pedido.atualizadoEm || pedido.criadoEm;
+    if (["Confirmado", "Cadastrado"].includes(pedido.situacao) && pedido.dataAgendada) {
+      eventos.push({ tipo: "agendado", em: quando, por: pedido.responsavel, data: pedido.dataAgendada, periodo: pedido.periodoAgendado });
+    }
+    if (pedido.situacao === "Cadastrado") eventos.push({ tipo: "realizada", em: quando, por: pedido.responsavel });
+    if (pedido.situacao === "Cancelado") {
+      eventos.push({ tipo: "cancelado", em: quando, nota: pedido.canceladoPor === "equipe" ? pedido.motivoCancelamento : "", por: pedido.canceladoPor === "paciente" ? "paciente" : "" });
+    }
+  }
+  return eventos.sort((a, b) => new Date(b.em) - new Date(a.em));
+}
+
+/** Data e hora curtas no fuso da unidade (ex.: "19/11 · 08:12"). */
+export function exibirDataHora(valor) {
+  if (!valor) return { dia: "—", hora: "" };
+  const d = new Date(valor);
+  if (Number.isNaN(d.getTime())) return { dia: "—", hora: "" };
+  return {
+    dia: d.toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit", timeZone: FUSO }),
+    hora: d.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit", timeZone: FUSO }),
+  };
+}
 
 const FUSO = "America/Sao_Paulo";
 
@@ -78,14 +172,17 @@ export function validarPedido(form) {
   if (form.cns && !cnsValido(form.cns)) e.cns = "Cartão SUS inválido. Confira os 15 números.";
   if (!String(form.telefone || "").trim()) e.telefone = "Informe um telefone para contato.";
   else if (somenteDigitos(form.telefone).length < 10) e.telefone = "Telefone incompleto. Inclua o DDD.";
+  if (String(form.outroTelefone || "").trim() && somenteDigitos(form.outroTelefone).length < 10)
+    e.outroTelefone = "Telefone incompleto. Inclua o DDD.";
   if (somenteDigitos(form.cep).length !== 8) e.cep = "Informe o CEP completo.";
   if (!String(form.endereco || "").trim()) e.endereco = "Informe o endereço.";
   if (!String(form.numero || "").trim()) e.numero = "Informe o número ou apartamento (use S/N se não houver).";
-  if (!["Sim", "Não"].includes(form.trabalhador)) e.trabalhador = "Informe se você trabalha fora.";
-  if (!String(form.melhorHorario || "").trim()) e.melhorHorario = "Informe o melhor horário para receber o agente.";
   const msgData = erroData(form.dataPreferida);
   if (msgData) e.dataPreferida = msgData;
   if (!PERIODOS.includes(form.periodoPreferido)) e.periodoPreferido = "Escolha manhã ou tarde.";
+  if (!HORARIOS.includes(form.melhorHorario)) e.melhorHorario = "Escolha o horário que você prefere.";
+  else if (PERIODOS.includes(form.periodoPreferido) && periodoDoHorario(form.melhorHorario) !== form.periodoPreferido)
+    e.melhorHorario = `Este horário não é do período da ${form.periodoPreferido.toLowerCase()}.`;
   if (form.consentimento !== true) e.consentimento = "É preciso concordar com o uso dos dados para enviar o pedido.";
   return e;
 }

@@ -2,35 +2,41 @@
 
 import React, { useEffect, useState } from "react";
 import { Link } from "../lib/router";
-import { ChevronRight, Plus, Users, UserCog, RotateCw, ChartColumn, MapPin, Clock, Phone, CircleCheck, CalendarPlus } from "lucide-react";
+import { ChevronRight, Plus, Users, UserCog, RotateCw, ChartColumn, MapPin, Clock, Phone, CircleCheck, CalendarPlus, CalendarDays, Store, Pencil, UsersRound } from "lucide-react";
 import { useAuth } from "../auth/AuthContext";
 import api from "../services/api";
 import AppLayout from "../components/AppLayout";
+import AgendamentoTag from "../components/AgendamentoTag";
 import { Alert, Button, ButtonLink, EmptyState, PageHeader, Section, Skeleton, TeamIcon } from "../components/ui";
 import { StatusBar, StatusLegend } from "../components/StatusBar";
 import { useResumoEquipes } from "../hooks/dados";
 import { equipesDoUsuario, rotuloPapel, situacaoDe } from "../constants/dominio";
 import { enderecoCompleto, exibirTelefone, hrefTelefone, plural, primeiroNome } from "../utils/formatos";
+import { EM_ANDAMENTO, exibirData, hojeNoFuso, paraISO } from "../utils/agendamento";
 
 const urlEquipe = (nome, filtro) =>
   `/equipe/${encodeURIComponent(nome)}${filtro ? `?situacao=${filtro}` : ""}`;
 
-/** Avisa quantos pedidos de cadastro feitos pelos pacientes esperam confirmação. */
-function AvisoPedidos() {
-  const [novos, setNovos] = useState(0);
+/** Pedidos do portal ainda em andamento (o agente só recebe os da sua microárea ou sem ACS). */
+function usePedidosEmAndamento() {
+  const [pedidos, setPedidos] = useState([]);
   useEffect(() => {
     let ativo = true;
     api
       .get("/agendamentos")
       .then((lista) => {
-        if (ativo) setNovos(lista.filter((p) => p.situacao === "Aguardando").length);
+        if (ativo) setPedidos(lista.filter((p) => EM_ANDAMENTO.includes(p.situacao)));
       })
       .catch(() => {});
     return () => {
       ativo = false;
     };
   }, []);
+  return pedidos;
+}
 
+/** Aviso para o supervisor: quantos pedidos de cadastro esperam a visita ser marcada. */
+function AvisoPedidos({ novos }) {
   if (novos === 0) return null;
   return (
     <Alert
@@ -43,13 +49,13 @@ function AvisoPedidos() {
       }
       className="mb-section"
     >
-      Pacientes pediram cadastro pela área do paciente e esperam a confirmação da visita.
+      Pacientes pediram cadastro pela área do paciente e esperam o ACS marcar a visita.
     </Alert>
   );
 }
 
 /** Painel de uma equipe: total, pendentes e barra de andamento. */
-function PainelEquipe({ item, destaque = false }) {
+function PainelEquipe({ item, destaque = false, editavel = false }) {
   const { equipe, contagem } = item;
   const visitados = contagem.total - contagem.pendente;
 
@@ -112,22 +118,99 @@ function PainelEquipe({ item, destaque = false }) {
 
       <StatusBar contagem={contagem} rotulo={`Andamento da equipe ${equipe.nome}`} />
       <StatusLegend contagem={contagem} mostrarZeros={false} />
+
+      {editavel && (
+        <div className="team-panel__actions">
+          <ButtonLink to={`/config/equipes?editar=${encodeURIComponent(equipe.nome)}`} size="sm" variant="ghost" icon={Pencil} aria-label={`Editar a equipe ${equipe.nome}`}>
+            Editar equipe
+          </ButtonLink>
+        </div>
+      )}
     </section>
+  );
+}
+
+/** Cartão no fim da grade do supervisor para criar mais uma equipe. */
+function NovaEquipe() {
+  return (
+    <Link to="/config/equipes?nova=1" className="paper team-panel nova-equipe">
+      <span className="nova-equipe__icone" aria-hidden="true">
+        <Plus />
+      </span>
+      <span className="team-panel__name">Nova equipe</span>
+      <span className="team-panel__total">Cadastre, renomeie ou exclua equipes</span>
+    </Link>
   );
 }
 
 const LIMITE_PENDENTES = 5;
 
-/** Lista curta dos pacientes que ainda faltam visitar (visão do ACS). */
-function PendentesDeVisita({ item }) {
+/** Aba da tela de pedidos onde o ACS age sobre este pedido. */
+function abaDoPedido(p, hoje) {
+  if (p.situacao === "ACaminho" || (p.situacao === "Confirmado" && paraISO(p.dataAgendada) <= hoje)) return "hoje";
+  return p.situacao;
+}
+
+/** Pedido do portal na lista de pendências do ACS. */
+function PedidoPendente({ pedido, hoje }) {
+  const tel = hrefTelefone(pedido.telefone);
+  const marcada = pedido.situacao === "Confirmado" || pedido.situacao === "ACaminho";
+  return (
+    <li className="list-item">
+      <div className="list-item__main">
+        <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 8 }}>
+          <Link to={`/agendamentos?situacao=${abaDoPedido(pedido, hoje)}`} className="list-item__title list-item__link">
+            {pedido.nome}
+          </Link>
+          <span className="tag tag--solid-primary">Pedido do portal</span>
+          <AgendamentoTag situacao={pedido.situacao} />
+        </div>
+        <div className="list-item__meta">
+          <span className="list-item__meta-row">
+            <CalendarDays aria-hidden="true" />
+            <span>
+              {marcada
+                ? `Visita: ${exibirData(pedido.dataAgendada)}, ${pedido.periodoAgendado?.toLowerCase()}`
+                : pedido.situacao === "Ausente"
+                  ? "Ninguém em casa na última visita: remarque"
+                  : `Prefere ${exibirData(pedido.dataPreferida)}, ${pedido.periodoPreferido?.toLowerCase()}`}
+              {pedido.melhorHorario && ` · por volta das ${pedido.melhorHorario}`}
+            </span>
+          </span>
+          <span className="list-item__meta-row">
+            <MapPin aria-hidden="true" />
+            <span>
+              {enderecoCompleto(pedido) || "Endereço não informado"}
+              {pedido.pontoReferencia && ` · ${pedido.pontoReferencia}`}
+            </span>
+          </span>
+          <span className="list-item__meta-row">
+            <Phone aria-hidden="true" />
+            {tel ? <a href={tel}>{exibirTelefone(pedido.telefone)}</a> : <span>{exibirTelefone(pedido.telefone)}</span>}
+          </span>
+        </div>
+      </div>
+    </li>
+  );
+}
+
+/** Lista curta do que o ACS ainda precisa visitar: pedidos do portal primeiro, depois os pacientes pendentes. */
+function PendentesDeVisita({ item, pedidos = [] }) {
   const { equipe, pacientes } = item;
+  const hoje = hojeNoFuso();
   const pendentes = pacientes.filter((p) => situacaoDe(p.status).chave === "pendente");
   const primeiros = pendentes.slice(0, LIMITE_PENDENTES);
+  const descricao =
+    pedidos.length > 0
+      ? "Pedidos feitos pelo portal primeiro. Depois, os pacientes da equipe em ordem alfabética."
+      : pendentes.length > 0
+        ? "Em ordem alfabética. Toque no nome para abrir o cadastro."
+        : undefined;
 
   return (
     <Section
       title="Pendentes de visita"
-      description={pendentes.length > 0 ? "Em ordem alfabética. Toque no nome para abrir o cadastro." : undefined}
+      description={descricao}
       bodyClassName="section__body--flush"
       footer={
         pendentes.length > LIMITE_PENDENTES ? (
@@ -138,12 +221,15 @@ function PendentesDeVisita({ item }) {
         ) : null
       }
     >
-      {pendentes.length === 0 ? (
+      {pendentes.length === 0 && pedidos.length === 0 ? (
         <EmptyState icon={CircleCheck} title="Nenhuma visita pendente">
           Todos os pacientes da equipe {equipe.nome} já têm a visita registrada.
         </EmptyState>
       ) : (
         <ul className="list">
+          {pedidos.map((p) => (
+            <PedidoPendente key={p._id} pedido={p} hoje={hoje} />
+          ))}
           {primeiros.map((p) => {
             const tel = hrefTelefone(p.telefone);
             return (
@@ -203,6 +289,7 @@ function Dashboard() {
   const supervisor = user?.role === "supervisor";
   const equipes = equipesDoUsuario(user);
   const { carregando, erro, porEquipe, geral, recarregar } = useResumoEquipes(user);
+  const pedidos = usePedidosEmAndamento();
 
   const descricao = supervisor
     ? carregando
@@ -224,12 +311,21 @@ function Dashboard() {
               <ButtonLink to="/config/usuarios" icon={UserCog}>
                 Gerenciar usuários
               </ButtonLink>
+              <ButtonLink to="/config/equipes" icon={UsersRound}>
+                Gerenciar equipes
+              </ButtonLink>
             </>
           ) : null
         }
       />
 
-      <AvisoPedidos />
+      {supervisor && <AvisoPedidos novos={pedidos.filter((p) => p.situacao === "Aguardando").length} />}
+
+      <div className="mb-section">
+        <ButtonLink to="/setor" icon={Store} size="sm">
+          Funcionamento da unidade hoje
+        </ButtonLink>
+      </div>
 
       {erro && (
         <Alert
@@ -265,15 +361,16 @@ function Dashboard() {
       ) : erro ? null : supervisor ? (
         <div className="teams-grid">
           {porEquipe.map((item) => (
-            <PainelEquipe key={item.equipe.nome} item={item} />
+            <PainelEquipe key={item.equipe.nome} item={item} editavel />
           ))}
+          <NovaEquipe />
         </div>
       ) : (
         <div className="home-grid">
           {porEquipe.map((item) => (
             <React.Fragment key={item.equipe.nome}>
               <PainelEquipe item={item} destaque />
-              {item.contagem.total > 0 && <PendentesDeVisita item={item} />}
+              {(item.contagem.total > 0 || pedidos.length > 0) && <PendentesDeVisita item={item} pedidos={pedidos} />}
             </React.Fragment>
           ))}
         </div>

@@ -3,6 +3,7 @@
 import React from "react";
 import { EQUIPES } from "../constants/dominio";
 import { BrandMark } from "./ui";
+import { ENDERECO_UNIDADE, UNIDADE } from "../constants/unidade";
 
 /** Layout das telas de acesso (login e configuração inicial). */
 function AuthLayout({
@@ -20,11 +21,15 @@ function AuthLayout({
           <BrandMark />
           <span className="auth__name">Visitas Domiciliares</span>
         </div>
+        <p className="auth__unidade">
+          <strong>{UNIDADE.nome}</strong>
+          <span>{ENDERECO_UNIDADE}</span>
+        </p>
         <div className="auth__intro">
           <p className="auth__lead">{lead}</p>
           {mostrarEquipes && (
             <div className="auth__teams">
-              <p className="auth__teams-label">Equipes da unidade</p>
+              <p className="auth__teams-label">Equipes da {UNIDADE.nome}</p>
               <ul className="auth__teams-list">
                 {EQUIPES.map(({ nome, Icone }) => (
                   <li key={nome}>

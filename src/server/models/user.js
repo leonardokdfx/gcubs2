@@ -8,7 +8,7 @@ const UserSchema = new mongoose.Schema({
 
   role: {
     type: String,
-    enum: ["agente", "supervisor"],
+    enum: ["agente", "supervisor", "setor"],
     default: "agente",
     required: true,
   },
@@ -16,8 +16,17 @@ const UserSchema = new mongoose.Schema({
   // Obrigatório apenas para agentes; supervisor enxerga todas as equipes
   equipe: {
     type: String,
-    enum: ["Ar", "Fogo", "Terra", "Água", "Sol"],
     required: function () { return this.role === "agente"; },
+  },
+
+  // Conta de setor (farmácia, laboratório…): só atualiza o funcionamento desses setores.
+  setores: {
+    type: [{ type: String, enum: ["farmacia", "laboratorio", "odontologia", "vacinacao", "ipe"] }], // = CHAVES_SETORES (utils/setores)
+    default: undefined,
+    validate: {
+      validator: function (v) { return this.role !== "setor" || (Array.isArray(v) && v.length > 0); },
+      message: "Escolha pelo menos um setor",
+    },
   },
 
   criadoEm: { type: Date, default: Date.now },

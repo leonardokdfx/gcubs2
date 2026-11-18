@@ -4,7 +4,7 @@ import { json, lerCorpo, rota } from "@/server/http";
 import { limitar } from "@/server/limite";
 import { camposDoPedido, gerarProtocolo, ipDe, origemDe } from "@/server/portal";
 import { agenteDaMicroarea, microareaDoCep } from "@/server/territorio";
-import { validarPedido } from "@/utils/agendamento";
+import { EM_ANDAMENTO, validarPedido } from "@/utils/agendamento";
 import { mascaraCPF, somenteDigitos } from "@/utils/formatos";
 
 const MAX_POR_ORIGEM_24H = 5;
@@ -36,7 +36,7 @@ export const POST = rota(async (req) => {
   if (await Paciente.exists({ cpf: { $in: [digitos, cpf] } })) {
     return json({ message: "Este CPF já consta no cadastro da unidade. Procure seu agente comunitário de saúde." }, 400);
   }
-  const emAndamento = await Agendamento.findOne({ cpf, situacao: { $in: ["Aguardando", "Confirmado"] } }).select("protocolo");
+  const emAndamento = await Agendamento.findOne({ cpf, situacao: { $in: EM_ANDAMENTO } }).select("protocolo");
   if (emAndamento) {
     return json(
       { message: `Já existe um pedido em andamento para este CPF (protocolo ${emAndamento.protocolo}). Acompanhe em "Acompanhar meu pedido".` },
@@ -66,6 +66,7 @@ export const POST = rota(async (req) => {
         responsavel: agente?.nome,
         consentimentoEm: new Date(),
         origem,
+        historico: [{ tipo: "recebido", em: new Date() }],
       }).save();
       return json({ message: "Pedido enviado!", protocolo: pedido.protocolo, equipe: pedido.equipe }, 201);
     } catch (err) {

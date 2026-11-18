@@ -7,6 +7,7 @@ export function gerarToken(user) {
     email: user.email,
     role: user.role,
     equipe: user.equipe || null,
+    setores: user.role === "setor" ? user.setores || [] : undefined,
   });
 }
 
@@ -17,6 +18,7 @@ export function sanitizarUser(user) {
     email: user.email,
     role: user.role,
     equipe: user.equipe || null,
+    setores: user.role === "setor" ? user.setores || [] : undefined,
     foto: user.foto || null,
   };
 }

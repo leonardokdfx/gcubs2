@@ -1,20 +1,39 @@
 "use client";
 
 import React, { useEffect, useRef, useState } from "react";
-import { Eye, Pencil, Save, Trash2, UserPlus, RotateCw, Users } from "lucide-react";
+import { BadgeCheck, Check, Eye, FlaskConical, Pencil, Pill, Save, ShieldCheck, Smile, Syringe, Trash2, UserPlus, UserRound, RotateCw, Users } from "lucide-react";
 import api from "../services/api";
 import AppLayout from "../components/AppLayout";
 import { Alert, Avatar, Button, EmptyState, Field, PageHeader, PasswordInput, Section, Skeleton, TeamIcon } from "../components/ui";
 import { ConfirmDialog, useToast } from "../components/feedback";
 import { useDesktop } from "../hooks/dados";
 import { EQUIPES, getEquipe } from "../constants/dominio";
+import { CHAVES_SETORES, SETORES } from "../utils/setores";
 import { useAuth } from "../auth/AuthContext";
+import { REQUISITOS_SENHA, erroSenha } from "../utils/senha";
 
-const formVazio = { nome: "", email: "", senha: "", role: "agente", equipe: "" };
+const formVazio = { nome: "", email: "", senha: "", role: "agente", equipe: "", setores: [] };
+
+/** Tipos de conta que o supervisor pode criar. Cada setor vira uma conta "setor" com aquele setor. */
+const TIPOS_CONTA = [
+  { id: "agente", valor: "agente", rotulo: "Agente (ACS)", descricao: "Pacientes e visitas da própria equipe", Icone: UserRound },
+  { id: "supervisor", valor: "supervisor", rotulo: "Supervisor", descricao: "Todas as equipes, usuários e configurações", Icone: ShieldCheck },
+  { id: "farmacia", setor: "farmacia", rotulo: "Farmácia", descricao: "Status, movimento e remédios em falta", Icone: Pill },
+  { id: "laboratorio", setor: "laboratorio", rotulo: "Laboratório (coleta)", descricao: "Status da coleta e movimento", Icone: FlaskConical },
+  { id: "odontologia", setor: "odontologia", rotulo: "Odontologia", descricao: "Status, movimento e urgência do dia", Icone: Smile },
+  { id: "vacinacao", setor: "vacinacao", rotulo: "Vacinação", descricao: "Status, movimento e vacinas em falta", Icone: Syringe },
+  { id: "ipe", setor: "ipe", rotulo: "Atendimento IPE", descricao: "Atendimento do dia: disponível ou já realizado", Icone: BadgeCheck },
+];
+
+const nomesSetores = (lista) => (lista || []).map((c) => SETORES[c]?.rotulo || c).join(", ");
 
 function PapelTag({ role }) {
-  return role === "supervisor" ? <span className="tag tag--primary">Supervisor</span> : <span className="tag">Agente (ACS)</span>;
+  if (role === "supervisor") return <span className="tag tag--primary">Supervisor</span>;
+  if (role === "setor") return <span className="tag">Setor</span>;
+  return <span className="tag">Agente (ACS)</span>;
 }
+
+const rotuloPerfil = (role) => (role === "supervisor" ? "Supervisor" : role === "setor" ? "Conta de setor" : "Agente (ACS)");
 
 function EquipeCelula({ nome }) {
   if (!nome) return <span style={{ color: "var(--color-text-secondary)" }}>Todas as equipes</span>;
@@ -67,13 +86,24 @@ function GerenciarUsuarios() {
 
   const alterar = (e) => {
     const { name, value } = e.target;
-    setForm((prev) => ({ ...prev, [name]: value, ...(name === "role" && value === "supervisor" ? { equipe: "" } : {}) }));
+    setForm((prev) => ({ ...prev, [name]: value, ...(name === "role" && value !== "agente" ? { equipe: "" } : {}) }));
     if (erros[name]) setErros((atual) => ({ ...atual, [name]: undefined }));
+  };
+
+  const escolherTipo = (op) => {
+    setForm((f) => {
+      // Numa conta nova de setor, o nome sugerido é o do setor (ex.: "Farmácia"), até a pessoa digitar outro.
+      const nomeSugerido = !editandoId && (!f.nome || TIPOS_CONTA.some((t) => t.setor && t.rotulo === f.nome));
+      return op.setor
+        ? { ...f, role: "setor", equipe: "", setores: [op.setor], nome: nomeSugerido ? op.rotulo : f.nome }
+        : { ...f, role: op.valor, setores: [], equipe: op.valor === "agente" ? f.equipe : "", nome: nomeSugerido ? "" : f.nome };
+    });
+    setErros((atual) => ({ ...atual, setores: undefined, equipe: undefined }));
   };
 
   const iniciarEdicao = (usuario) => {
     setEditandoId(usuario._id);
-    setForm({ nome: usuario.nome, email: usuario.email, senha: "", role: usuario.role, equipe: usuario.equipe || "" });
+    setForm({ nome: usuario.nome, email: usuario.email, senha: "", role: usuario.role, equipe: usuario.equipe || "", setores: usuario.setores || [] });
     setErro("");
     setErros({});
     formularioRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
@@ -94,10 +124,11 @@ function GerenciarUsuarios() {
     if (!form.nome.trim()) novos.nome = "Informe o nome completo.";
     if (!form.email.trim()) novos.email = "Informe o e-mail.";
     if (!editandoId && !form.senha) novos.senha = "Defina uma senha provisória.";
-    if (editandoId && form.senha && form.senha.length < 6) novos.senha = "A nova senha deve ter pelo menos 6 caracteres.";
+    else if (form.senha && erroSenha(form.senha)) novos.senha = erroSenha(form.senha);
     if (form.role === "agente" && !form.equipe) novos.equipe = "Selecione a equipe do agente.";
+    if (form.role === "setor" && form.setores.length === 0) novos.setores = "Escolha os setores que esta conta atualiza.";
     setErros(novos);
-    const primeiro = ["nome", "email", "senha", "equipe"].find((k) => novos[k]);
+    const primeiro = ["nome", "email", "senha", "equipe", "setores"].find((k) => novos[k]);
     if (primeiro) {
       document.getElementById(`usuario-${primeiro}`)?.focus();
       return;
@@ -145,7 +176,7 @@ function GerenciarUsuarios() {
       <PageHeader
         breadcrumb={[{ label: "Configurações", to: "/config" }, { label: "Gerenciar usuários" }]}
         title="Gerenciar usuários"
-        description="Agentes enxergam só a própria equipe. Supervisores enxergam todas e cadastram usuários."
+        description="Agentes enxergam só a própria equipe. Supervisores enxergam todas e cadastram usuários. Contas de setor (farmácia, laboratório…) só atualizam o funcionamento da unidade e não veem dados de pacientes."
       />
 
       <div className="stack">
@@ -180,22 +211,30 @@ function GerenciarUsuarios() {
                   />
                 )}
               </Field>
-              <Field className="span-2" label={editandoId ? "Nova senha" : "Senha provisória"} required={!editandoId} optional={!!editandoId} htmlFor="usuario-senha" error={erros.senha}>
+              <Field className="span-2" label={editandoId ? "Nova senha" : "Senha provisória"} required={!editandoId} optional={!!editandoId} htmlFor="usuario-senha" error={erros.senha} hint={REQUISITOS_SENHA.map((r) => r.texto).join(" · ")}>
                 {(props) => <PasswordInput {...props} name="senha" value={form.senha} onChange={alterar} autoComplete="new-password" />}
               </Field>
-              <fieldset className="fieldset field span-2">
-                <legend className="field__label">Papel</legend>
-                <div className="choices">
-                  {[
-                    { valor: "agente", rotulo: "Agente" },
-                    { valor: "supervisor", rotulo: "Supervisor" },
-                  ].map((op) => (
-                    <label key={op.valor} className="choice choice--radio" style={{ flex: 1 }}>
-                      <input type="radio" name="role" value={op.valor} checked={form.role === op.valor} onChange={alterar} />
-                      <span className="choice__check" aria-hidden="true" />
-                      {op.rotulo}
-                    </label>
-                  ))}
+              <fieldset className="fieldset field" aria-describedby="dica-papel">
+                <legend className="field__label">Tipo de conta</legend>
+                <p className="field__hint" id="dica-papel" style={{ marginTop: 0 }}>
+                  As contas de setor (farmácia, laboratório, odontologia, vacinação e IPE) abrem direto no painel do setor e não veem dados de pacientes.
+                </p>
+                <div className="tipos-conta">
+                  {TIPOS_CONTA.map((op) => {
+                    const marcado = op.setor ? form.role === "setor" && form.setores[0] === op.setor : form.role === op.valor;
+                    return (
+                      <label key={op.id} className="tipo-conta" data-marcado={marcado ? "true" : undefined}>
+                        <input type="radio" name="tipo-conta" value={op.id} checked={marcado} onChange={() => escolherTipo(op)} />
+                        <span className="tipo-conta__icone" aria-hidden="true">
+                          <op.Icone />
+                        </span>
+                        <span className="tipo-conta__texto">
+                          <span className="tipo-conta__titulo">{op.rotulo}</span>
+                          <span className="tipo-conta__descricao">{op.descricao}</span>
+                        </span>
+                      </label>
+                    );
+                  })}
                 </div>
               </fieldset>
               {form.role === "agente" && (
@@ -211,6 +250,36 @@ function GerenciarUsuarios() {
                     </select>
                   )}
                 </Field>
+              )}
+              {form.role === "setor" && form.setores.length > 0 && (
+                <fieldset className="fieldset field">
+                  <legend className="field__label">
+                    Esta conta também atualiza <span className="field__optional">(opcional)</span>
+                  </legend>
+                  <div className="choices">
+                    {CHAVES_SETORES.filter((c) => c !== form.setores[0]).map((c) => (
+                      <label key={c} className="choice">
+                        <input
+                          type="checkbox"
+                          checked={form.setores.includes(c)}
+                          onChange={() =>
+                            setForm((f) => ({ ...f, setores: f.setores.includes(c) ? f.setores.filter((x) => x !== c) : [...f.setores, c] }))
+                          }
+                        />
+                        <span className="choice__check" aria-hidden="true">
+                          <Check strokeWidth={3} />
+                        </span>
+                        {SETORES[c].rotulo}
+                      </label>
+                    ))}
+                  </div>
+                  <p className="field__hint">Ex.: se o atendimento IPE é feito pela odontologia, marque "Atendimento IPE" na conta da odontologia.</p>
+                </fieldset>
+              )}
+              {erros.setores && (
+                <p className="field__error" id="erro-setores">
+                  {erros.setores}
+                </p>
               )}
               <div style={{ display: "flex", justifyContent: "flex-end", gap: 8 }}>
                 {editandoId && <Button type="button" onClick={cancelarEdicao}>Cancelar</Button>}
@@ -257,7 +326,7 @@ function GerenciarUsuarios() {
                     <th scope="col">Nome</th>
                     <th scope="col">E-mail</th>
                     <th scope="col">Papel</th>
-                    <th scope="col">Equipe</th>
+                    <th scope="col">Equipe ou setor</th>
                     <th scope="col">Ações</th>
                   </tr>
                 </thead>
@@ -275,7 +344,7 @@ function GerenciarUsuarios() {
                         <PapelTag role={u.role} />
                       </td>
                       <td>
-                        <EquipeCelula nome={u.role === "supervisor" ? "" : u.equipe} />
+                        {u.role === "setor" ? <span>{nomesSetores(u.setores)}</span> : <EquipeCelula nome={u.role === "supervisor" ? "" : u.equipe} />}
                       </td>
                       <td>
                         <div style={{ display: "flex", gap: 8 }}>
@@ -307,7 +376,8 @@ function GerenciarUsuarios() {
                     </p>
                     <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginTop: 8, alignItems: "center" }}>
                       <PapelTag role={u.role} />
-                      {u.role !== "supervisor" && u.equipe && <span className="tag">Equipe {u.equipe}</span>}
+                      {u.role === "agente" && u.equipe && <span className="tag">Equipe {u.equipe}</span>}
+                      {u.role === "setor" && <span className="tag">{nomesSetores(u.setores)}</span>}
                     </div>
                     <div style={{ display: "flex", gap: 8, marginTop: 12 }}>
                       <Button size="sm" icon={Eye} onClick={() => setUsuarioVisualizado(u)}>
@@ -352,8 +422,12 @@ function GerenciarUsuarios() {
                 <div className="dialog__text">
                   <p><strong>Nome:</strong> {usuarioVisualizado.nome}</p>
                   <p><strong>E-mail:</strong> {usuarioVisualizado.email}</p>
-                  <p><strong>Perfil:</strong> {usuarioVisualizado.role === "supervisor" ? "Supervisor" : "Agente (ACS)"}</p>
-                  <p><strong>Equipe:</strong> {usuarioVisualizado.role === "supervisor" ? "Todas as equipes" : usuarioVisualizado.equipe}</p>
+                  <p><strong>Perfil:</strong> {rotuloPerfil(usuarioVisualizado.role)}</p>
+                  {usuarioVisualizado.role === "setor" ? (
+                    <p><strong>Setores:</strong> {nomesSetores(usuarioVisualizado.setores)}</p>
+                  ) : (
+                    <p><strong>Equipe:</strong> {usuarioVisualizado.role === "supervisor" ? "Todas as equipes" : usuarioVisualizado.equipe}</p>
+                  )}
                 </div>
               </div>
             </div>

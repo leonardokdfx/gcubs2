@@ -1850,3 +1850,8 @@ a.status-legend__item:hover .status-legend__name {
   color: var(--color-primary);
   text-decoration: underline;
 }
+
+.tag[data-status="caminho"] {
+  background: var(--color-primary);
+  color: #fff;
+}

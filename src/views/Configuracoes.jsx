@@ -2,7 +2,7 @@
 
 import React from "react";
 import { Link, useNavigate } from "../lib/router";
-import { ChevronRight, LogOut, UserRound, UserCog, MapPinned } from "lucide-react";
+import { ChevronRight, LogOut, UserRound, UserCog, MapPinned, UsersRound } from "lucide-react";
 import { useAuth } from "../auth/AuthContext";
 import AppLayout from "../components/AppLayout";
 import { PageHeader } from "../components/ui";
@@ -21,9 +21,15 @@ function Configuracoes() {
     },
     supervisor && {
       titulo: "Gerenciar usuários",
-      descricao: "Cadastre agentes e supervisores e vincule cada agente à sua equipe.",
+      descricao: "Cadastre, visualize, edite e exclua agentes, supervisores e os logins dos setores (farmácia, laboratório…).",
       Icone: UserCog,
       to: "/config/usuarios",
+    },
+    supervisor && {
+      titulo: "Equipes",
+      descricao: "Cadastre, visualize, renomeie e exclua equipes de Saúde da Família. Ao excluir, os cadastros vão para outra equipe.",
+      Icone: UsersRound,
+      to: "/config/equipes",
     },
     supervisor && {
       titulo: "Território",

@@ -4,7 +4,7 @@ import { autenticar, json, podeAcessarEquipe, rota } from "@/server/http";
 export const dynamic = "force-dynamic";
 
 export const GET = rota(async (req, { id }) => {
-  const user = autenticar(req);
+  const user = await autenticar(req);
   const paciente = await Paciente.findById(id).catch(() => null);
   if (!paciente) return json({ message: "Paciente não encontrado" }, 404);
   if (!podeAcessarEquipe(user, paciente.equipe)) {

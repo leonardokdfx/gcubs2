@@ -7,7 +7,7 @@ import { dadosDaMicroarea } from "@/server/territorio";
 
 // PUT /api/territorio/:id — edita a microárea (supervisor).
 export const PUT = rota(async (req, { id }) => {
-  const user = autenticar(req);
+  const user = await autenticar(req);
   apenasSupervisor(user);
   const existente = await Microarea.findById(id).catch(() => null);
   if (!existente) return json({ message: "Microárea não encontrada" }, 404);
@@ -37,7 +37,7 @@ export const PUT = rota(async (req, { id }) => {
 
 // DELETE /api/territorio/:id — remove a microárea (os pacientes mantêm o número gravado).
 export const DELETE = rota(async (req, { id }) => {
-  const user = autenticar(req);
+  const user = await autenticar(req);
   apenasSupervisor(user);
   const removida = await Microarea.findByIdAndDelete(id).catch(() => null);
   if (!removida) return json({ message: "Microárea não encontrada" }, 404);

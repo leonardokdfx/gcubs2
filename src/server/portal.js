@@ -1,5 +1,6 @@
 import crypto from "node:crypto";
 import Agendamento from "./models/agendamento";
+import Paciente from "./models/paciente";
 import { mascaraCEP, mascaraCNS, mascaraCPF, mascaraTelefone, somenteDigitos } from "@/utils/formatos";
 import { GRUPOS } from "./constantes";
 
@@ -11,18 +12,16 @@ const contagem = (v) => Math.max(0, Math.min(99, Math.floor(Number(v) || 0)));
  * Situação, equipe, microárea, responsável etc. são sempre definidos pelo sistema.
  */
 export function camposDoPedido(body) {
-  const trabalhador = body.trabalhador === "Sim" ? "Sim" : body.trabalhador === "Não" ? "Não" : undefined;
   return {
     nome: texto(body.nome, 120),
     telefone: mascaraTelefone(body.telefone),
+    outroTelefone: somenteDigitos(body.outroTelefone).length >= 10 ? mascaraTelefone(body.outroTelefone) : "",
     cns: somenteDigitos(body.cns).length === 15 ? mascaraCNS(body.cns) : "",
     cep: mascaraCEP(body.cep),
     endereco: texto(body.endereco, 200),
     numero: texto(body.numero, 40),
     pontoReferencia: texto(body.pontoReferencia, 200),
-    trabalhador,
-    enderecoMoradia: trabalhador === "Sim" ? texto(body.enderecoMoradia, 200) : "",
-    melhorHorario: texto(body.melhorHorario, 120),
+    melhorHorario: body.melhorHorario, // horário fixo, já validado em validarPedido
     moradoresHomens: contagem(body.moradoresHomens),
     moradoresMulheres: contagem(body.moradoresMulheres),
     moradoresCriancas: contagem(body.moradoresCriancas),
@@ -54,9 +53,38 @@ export function gerarProtocolo() {
   return Array.from(bytes, (b) => ALFABETO[b % ALFABETO.length]).join("");
 }
 
+/**
+ * Na consulta por CPF + data de nascimento o protocolo aparece mascarado ("••••7K"):
+ * quem só conhece esses dois dados vê o andamento, mas não consegue cancelar o pedido
+ * de outra pessoa, porque o cancelamento exige o protocolo completo (R-03).
+ */
+export function mascararProtocolo(pedido) {
+  const p = typeof pedido.toObject === "function" ? pedido.toObject() : { ...pedido };
+  p.protocolo = p.protocolo ? `••••${String(p.protocolo).slice(-2)}` : "";
+  return p;
+}
+
+/** Protocolo digitado pelo paciente: sem espaços e em maiúsculas. */
+export const normalizarProtocolo = (v) => String(v ?? "").replace(/\s+/g, "").toUpperCase().slice(0, 12);
+
 // Só o necessário para o paciente acompanhar o pedido (sem endereço nem dados de saúde).
 export const CAMPOS_CONSULTA =
-  "protocolo situacao dataPreferida periodoPreferido dataAgendada periodoAgendado equipe microarea responsavel motivoCancelamento canceladoPor criadoEm";
+  "protocolo situacao dataPreferida periodoPreferido melhorHorario dataAgendada periodoAgendado equipe microarea responsavel motivoCancelamento canceladoPor tentativas historico criadoEm atualizadoEm";
+
+/**
+ * Equipe e ACS de quem fez a consulta no portal: primeiro o cadastro na lista da equipe,
+ * depois o pedido mais recente com equipe definida. Retorna null se não achar nada.
+ */
+export async function equipeDoPaciente(cpf, dataNascimento, pedidos = []) {
+  const digitos = somenteDigitos(cpf);
+  const paciente = await Paciente.findOne({
+    cpf: { $in: [digitos, mascaraCPF(digitos)] },
+    dataNascimento: new Date(`${dataNascimento}T00:00:00Z`),
+  }).select("equipe responsavel");
+  if (paciente?.equipe) return { equipe: paciente.equipe, acs: paciente.responsavel || "" };
+  const pedido = pedidos.find((p) => p.equipe && !["Cancelado", "Recusada"].includes(p.situacao)) || pedidos.find((p) => p.equipe);
+  return pedido ? { equipe: pedido.equipe, acs: pedido.responsavel || "" } : null;
+}
 
 /** Busca os pedidos que batem com CPF + data de nascimento (as duas coisas juntas identificam o paciente). */
 export async function pedidosDoPaciente(cpf, dataNascimento, extra = {}) {

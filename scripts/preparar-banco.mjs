@@ -9,8 +9,10 @@ import User from "../src/server/models/user.js";
 import Paciente from "../src/server/models/paciente.js";
 import Agendamento from "../src/server/models/agendamento.js";
 import Microarea from "../src/server/models/microarea.js";
+import Setor from "../src/server/models/setor.js";
+import Equipe from "../src/server/models/equipe.js";
 
-const MODELOS = [User, Paciente, Agendamento, Microarea];
+const MODELOS = [User, Paciente, Agendamento, Microarea, Setor, Equipe];
 const soVerificar = process.argv.includes("--verificar");
 
 if (!process.env.MONGO_URI) {

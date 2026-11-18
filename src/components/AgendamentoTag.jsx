@@ -1,10 +1,18 @@
 "use client";
 
 import React from "react";
-import { CalendarCheck, CircleCheck, Clock, Ban } from "lucide-react";
+import { CalendarCheck, CircleCheck, CircleX, Clock, Ban, DoorClosed, Footprints } from "lucide-react";
 import { SITUACOES_AGENDAMENTO } from "../utils/agendamento";
 
-const ICONES = { Aguardando: Clock, Confirmado: CalendarCheck, Cadastrado: CircleCheck, Cancelado: Ban };
+const ICONES = {
+  Aguardando: Clock,
+  Confirmado: CalendarCheck,
+  ACaminho: Footprints,
+  Ausente: DoorClosed,
+  Cadastrado: CircleCheck,
+  Recusada: Ban,
+  Cancelado: CircleX,
+};
 
 /** Situação do pedido de cadastro: sempre cor + ícone + texto. */
 export default function AgendamentoTag({ situacao }) {

@@ -29,3 +29,21 @@ npm run dev                  # http://localhost:3000
 6. No MongoDB Atlas, em **Network Access**, libere `0.0.0.0/0`. A Vercel não tem IP fixo.
 
 Pela CLI: `cd web && npx vercel` e, depois, `npx vercel --prod`.
+
+## Hospedar em infraestrutura própria (ex.: CeTIC-DF)
+
+O build gera um servidor Node autocontido (`output: "standalone"` em `next.config.mjs`),
+sem depender da Vercel. O Decreto nº 48.899/2026 pede hospedagem em infraestrutura
+corporativa sempre que possível.
+
+```bash
+docker build -t visitas-domiciliares .
+docker run -p 3000:3000 -e MONGO_URI=... -e JWT_SECRET=... visitas-domiciliares
+```
+
+Sem Docker: `npm ci && npm run build`, depois copie `public/` para `.next/standalone/public`
+e `.next/static` para `.next/standalone/.next/static`, e rode `node .next/standalone/server.js`.
+
+- Sirva sempre por HTTPS (a política de segurança envia `upgrade-insecure-requests` e HSTS).
+- Restrinja o acesso de rede do MongoDB ao servidor da aplicação; não use `0.0.0.0/0` em produção.
+- `/api/health` responde `{"status":"ok"}` para o monitoramento.

@@ -8,7 +8,7 @@ export const dynamic = "force-dynamic";
 // Agente vê os pedidos da equipe dele que são da sua microárea (ou que
 // ainda não têm ACS definido, para alguém da equipe assumir).
 export const GET = rota(async (req) => {
-  const user = autenticar(req);
+  const user = await autenticar(req);
   const filtro =
     user.role === "supervisor"
       ? {}

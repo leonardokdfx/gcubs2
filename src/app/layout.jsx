@@ -7,10 +7,11 @@ import "@/styles/base.css";
 import "@/styles/components.css";
 import "@/styles/layout.css";
 import Providers from "./providers";
+import { ENDERECO_UNIDADE, UNIDADE } from "@/constants/unidade";
 
 export const metadata = {
-  title: "Visitas Domiciliares",
-  description: "Registro e acompanhamento das visitas domiciliares dos Agentes Comunitários de Saúde.",
+  title: `Visitas Domiciliares · ${UNIDADE.nome}`,
+  description: `Registro e acompanhamento das visitas domiciliares dos Agentes Comunitários de Saúde da ${UNIDADE.nome} (${ENDERECO_UNIDADE}).`,
   manifest: "/manifest.json",
   icons: {
     icon: [{ url: "/favicon.svg", type: "image/svg+xml" }, { url: "/favicon.ico" }],

@@ -5,7 +5,7 @@ import { sanitizarUser } from "@/server/usuarios";
 export const dynamic = "force-dynamic";
 
 export const GET = rota(async (req) => {
-  const sessao = autenticar(req);
+  const sessao = await autenticar(req, { permitirSetor: true });
   const user = await User.findById(sessao.id);
   if (!user) return json({ message: "Usuário não encontrado" }, 404);
   return json({ user: sanitizarUser(user) });

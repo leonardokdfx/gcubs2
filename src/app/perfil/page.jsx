@@ -5,7 +5,7 @@ import View from "@/views/Perfil";
 
 export default function Page() {
   return (
-    <Pagina protegida>
+    <Pagina protegida permitirSetor>
       <View />
     </Pagina>
   );

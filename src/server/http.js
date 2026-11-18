@@ -1,6 +1,7 @@
 import jwt from "jsonwebtoken";
 import { NextResponse } from "next/server";
 import { conectar } from "./db";
+import User from "./models/user";
 
 export class HttpError extends Error {
   constructor(status, message) {
@@ -33,12 +34,31 @@ export function lerToken(req) {
   }
 }
 
-/** Exige um usuário da equipe autenticado (agente ou supervisor). */
-export function autenticar(req) {
-  const user = lerToken(req);
-  if (!user) throw new HttpError(401, "Token não fornecido");
+/**
+ * Exige um usuário da equipe autenticado (agente, supervisor ou setor).
+ * O token só prova quem é a pessoa: o perfil, a equipe e os setores são lidos do banco
+ * a cada requisição. Assim, uma conta excluída ou rebaixada perde o acesso na hora,
+ * sem esperar o token expirar (risco R-07 da documentação).
+ */
+export async function autenticar(req, { permitirSetor = false } = {}) {
+  const sessao = lerToken(req);
+  if (!sessao) throw new HttpError(401, "Token não fornecido");
   // Contas do portal do paciente nunca acessam as rotas internas.
-  if (user.role === "paciente") throw new HttpError(403, "Acesso restrito à equipe de saúde");
+  if (sessao.role === "paciente") throw new HttpError(403, "Acesso restrito à equipe de saúde");
+
+  const conta = await User.findById(sessao.id).select("nome email role equipe setores").lean().catch(() => null);
+  if (!conta) throw new HttpError(401, "Sessão encerrada. Faça login novamente.");
+  const user = {
+    id: String(conta._id),
+    nome: conta.nome,
+    email: conta.email,
+    role: conta.role,
+    equipe: conta.equipe || null,
+    setores: conta.role === "setor" ? conta.setores || [] : undefined,
+  };
+
+  // Contas de setor (farmácia, laboratório…) só atualizam o funcionamento: nunca veem dados de pacientes.
+  if (user.role === "setor" && !permitirSetor) throw new HttpError(403, "Esta conta de setor só acessa o funcionamento da unidade");
   return user;
 }
 
@@ -76,8 +96,9 @@ export function rota(handler) {
       return await handler(req, decodificados);
     } catch (err) {
       if (err instanceof HttpError) return json({ message: err.message }, err.status);
+      // O detalhe técnico fica só no log do servidor; o usuário recebe uma mensagem genérica (R-08).
       console.error(err);
-      return json({ message: "Erro interno do servidor", error: err.message }, 500);
+      return json({ message: "Erro interno do servidor" }, 500);
     }
   };
 }

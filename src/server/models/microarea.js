@@ -12,7 +12,7 @@ const CepSchema = new mongoose.Schema(
 );
 
 const MicroareaSchema = new mongoose.Schema({
-  equipe: { type: String, enum: ["Ar", "Fogo", "Terra", "Água", "Sol"], required: true },
+  equipe: { type: String, required: true },
   numero: { type: Number, required: true, min: 1, max: 99 },
   descricao: { type: String, default: "" }, // quadras/logradouros, ex.: "CLN 404, SGAN 604, SQN 404"
   agente: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },

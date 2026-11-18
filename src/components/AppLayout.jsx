@@ -2,14 +2,20 @@
 
 import React, { useEffect, useRef, useState } from "react";
 import { Link, useLocation, useNavigate } from "../lib/router";
-import { House, Users, ChartColumn, Settings, LogOut, UserRound, ChevronDown, UserCog, CalendarPlus } from "lucide-react";
+import { House, Users, ChartColumn, Settings, LogOut, UserRound, ChevronDown, UserCog, CalendarPlus, CalendarX2, Stethoscope, Store } from "lucide-react";
 import { useAuth } from "../auth/AuthContext";
+import { useEquipes } from "../auth/EquipesContext";
 import { equipesDoUsuario, rotuloPapel } from "../constants/dominio";
 import { Avatar, BrandMark } from "./ui";
+import { UNIDADE } from "../constants/unidade";
 import { useToast } from "./feedback";
 
 const INICIO = { to: "/dashboard", label: "Início", Icone: House, ativo: (p) => p === "/dashboard" };
 const PEDIDOS = { to: "/agendamentos", label: "Pedidos de cadastro", curto: "Pedidos", Icone: CalendarPlus, ativo: (p) => p.startsWith("/agendamentos") };
+const PRESENCA = { to: "/presenca", label: "Presença dos profissionais", curto: "Presença", Icone: Stethoscope, ativo: (p) => p.startsWith("/presenca") };
+const AVISOS = { to: "/consultas", label: "Avisos de consulta", curto: "Consultas", Icone: CalendarX2, ativo: (p) => p.startsWith("/consultas") };
+const FUNCIONAMENTO = { to: "/setor", label: "Funcionamento da unidade", curto: "Unidade", Icone: Store, ativo: (p) => p.startsWith("/setor") };
+const PERFIL = { to: "/perfil", label: "Meu perfil", curto: "Perfil", Icone: UserRound, ativo: (p) => p.startsWith("/perfil") };
 const RELATORIOS = { to: "/relatorios", label: "Relatórios", Icone: ChartColumn, ativo: (p) => p.startsWith("/relatorios") };
 const USUARIOS = { to: "/config/usuarios", label: "Usuários", Icone: UserCog, ativo: (p) => p.startsWith("/config/usuarios") };
 const CONFIG = {
@@ -92,10 +98,12 @@ function MenuUsuario() {
             <UserRound aria-hidden="true" />
             Meu perfil
           </Link>
-          <Link to="/config" className="menu__item" role="menuitem" onClick={() => setAberto(false)}>
-            <Settings aria-hidden="true" />
-            Configurações
-          </Link>
+          {user?.role !== "setor" && (
+            <Link to="/config" className="menu__item" role="menuitem" onClick={() => setAberto(false)}>
+              <Settings aria-hidden="true" />
+              Configurações
+            </Link>
+          )}
           <button type="button" className="menu__item menu__item--danger" role="menuitem" onClick={sair}>
             <LogOut aria-hidden="true" />
             Sair do sistema
@@ -119,7 +127,10 @@ function AppLayout({ children, semNavInferior = false, estreito = false }) {
   const pathname = decodeURIComponent(caminhoBruto);
   const toast = useToast();
   const supervisor = user?.role === "supervisor";
-  const equipes = equipesDoUsuario(user);
+  // Conta de setor (farmácia, laboratório…) só tem o funcionamento da unidade e o próprio perfil.
+  const contaSetor = user?.role === "setor";
+  useEquipes(); // redesenha o menu quando o supervisor cria, renomeia ou exclui uma equipe
+  const equipes = contaSetor ? [] : equipesDoUsuario(user);
 
   const minhaEquipe = !supervisor && user?.equipe
     ? {
@@ -130,8 +141,12 @@ function AppLayout({ children, semNavInferior = false, estreito = false }) {
       }
     : null;
 
-  const itensInferiores = [INICIO, minhaEquipe, PEDIDOS, RELATORIOS, supervisor ? USUARIOS : null, CONFIG].filter(Boolean);
-  const itensGestao = [RELATORIOS, supervisor ? USUARIOS : null, CONFIG].filter(Boolean);
+  const PAINEL_SETOR = { ...FUNCIONAMENTO, label: "Painel do setor", curto: "Painel" };
+  const itensInferiores = contaSetor
+    ? [PAINEL_SETOR, PERFIL]
+    : [INICIO, minhaEquipe, PEDIDOS, AVISOS, PRESENCA, RELATORIOS, supervisor ? USUARIOS : null, CONFIG].filter(Boolean);
+  const itensPrincipais = contaSetor ? [PAINEL_SETOR, PERFIL] : [INICIO, PEDIDOS, AVISOS, PRESENCA, FUNCIONAMENTO];
+  const itensGestao = contaSetor ? [] : [RELATORIOS, supervisor ? USUARIOS : null, CONFIG].filter(Boolean);
 
   useEffect(() => {
     toast.setLayout({ semNav: semNavInferior, comBarraAcoes: semNavInferior });
@@ -153,9 +168,12 @@ function AppLayout({ children, semNavInferior = false, estreito = false }) {
       </a>
 
       <header className="topbar">
-        <Link to="/dashboard" className="brand" aria-label="Visitas Domiciliares, ir para o início">
+        <Link to={contaSetor ? "/setor" : "/dashboard"} className="brand" aria-label={`Visitas Domiciliares, ${UNIDADE.nome}, ir para o início`}>
           <BrandMark />
-          <span className="brand__name">Visitas Domiciliares</span>
+          <span className="brand__texto">
+            <span className="brand__name">Visitas Domiciliares</span>
+            <span className="brand__sub">{UNIDADE.nome}</span>
+          </span>
         </Link>
         <span className="topbar__spacer" />
         <MenuUsuario />
@@ -163,12 +181,11 @@ function AppLayout({ children, semNavInferior = false, estreito = false }) {
 
       <nav className="sidenav" aria-label="Menu principal">
         <ul className="nav-list">
-          <li>
-            <NavItem item={INICIO} pathname={pathname} className="nav-link" />
-          </li>
-          <li>
-            <NavItem item={PEDIDOS} pathname={pathname} className="nav-link" />
-          </li>
+          {itensPrincipais.map((item) => (
+            <li key={item.to}>
+              <NavItem item={item} pathname={pathname} className="nav-link" />
+            </li>
+          ))}
         </ul>
 
         {equipes.length > 0 && (
@@ -194,18 +211,20 @@ function AppLayout({ children, semNavInferior = false, estreito = false }) {
           </div>
         )}
 
-        <div className="nav-group">
-          <div className="nav-group__label" id="nav-gestao">
-            Gestão
+        {itensGestao.length > 0 && (
+          <div className="nav-group">
+            <div className="nav-group__label" id="nav-gestao">
+              Gestão
+            </div>
+            <ul className="nav-list" aria-labelledby="nav-gestao">
+              {itensGestao.map((item) => (
+                <li key={item.to}>
+                  <NavItem item={item} pathname={pathname} className="nav-link" />
+                </li>
+              ))}
+            </ul>
           </div>
-          <ul className="nav-list" aria-labelledby="nav-gestao">
-            {itensGestao.map((item) => (
-              <li key={item.to}>
-                <NavItem item={item} pathname={pathname} className="nav-link" />
-              </li>
-            ))}
-          </ul>
-        </div>
+        )}
 
         <div className="sidenav__footer">
           <ul className="nav-list">

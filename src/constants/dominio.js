@@ -1,15 +1,61 @@
-import { Wind, Flame, Mountain, Droplets, Sun, CircleCheck, UserX, DoorClosed, Clock } from "lucide-react";
+import {
+  Wind,
+  Flame,
+  Mountain,
+  Droplets,
+  Sun,
+  Leaf,
+  TreePine,
+  Flower2,
+  Star,
+  Moon,
+  Cloud,
+  Waves,
+  Heart,
+  Bird,
+  Shield,
+  House,
+  CircleCheck,
+  UserX,
+  DoorClosed,
+  Clock,
+} from "lucide-react";
+import { EQUIPES_INICIAIS } from "../utils/equipes";
 
-// Equipes fixas do posto (precisam bater com o enum do backend).
-export const EQUIPES = [
-  { nome: "Ar", Icone: Wind },
-  { nome: "Fogo", Icone: Flame },
-  { nome: "Terra", Icone: Mountain },
-  { nome: "Água", Icone: Droplets },
-  { nome: "Sol", Icone: Sun },
-];
+/** Desenho de cada ícone de equipe (as chaves estão em src/utils/equipes.js). */
+export const ICONES_EQUIPE_COMPONENTES = {
+  vento: Wind,
+  fogo: Flame,
+  montanha: Mountain,
+  gota: Droplets,
+  sol: Sun,
+  folha: Leaf,
+  arvore: TreePine,
+  flor: Flower2,
+  estrela: Star,
+  lua: Moon,
+  nuvem: Cloud,
+  onda: Waves,
+  coracao: Heart,
+  passaro: Bird,
+  escudo: Shield,
+  casa: House,
+};
 
+const comIcone = (e) => ({ ...e, Icone: ICONES_EQUIPE_COMPONENTES[e.icone] || Wind });
+
+// Equipes da unidade. Ficam no banco e o supervisor gerencia em Configurações › Equipes.
+// Estas listas são preenchidas pelo EquipesProvider (src/auth/EquipesContext.jsx) assim que o app abre;
+// até lá valem as equipes iniciais. São atualizadas no lugar para quem já importou continuar vendo a lista certa.
+export const EQUIPES = EQUIPES_INICIAIS.map(comIcone);
 export const NOMES_EQUIPES = EQUIPES.map((e) => e.nome);
+
+/** Troca a lista de equipes (chamado pelo EquipesProvider). */
+export function definirEquipes(lista) {
+  const novas = (lista || []).map(comIcone);
+  EQUIPES.splice(0, EQUIPES.length, ...novas);
+  NOMES_EQUIPES.splice(0, NOMES_EQUIPES.length, ...novas.map((e) => e.nome));
+}
 
 export function getEquipe(nome) {
   return EQUIPES.find((e) => e.nome === nome) || { nome, Icone: Wind };
@@ -97,5 +143,6 @@ export const GRUPOS_ATENCAO = ["Diabéticos", "Hipertensos", "Gestantes"];
 export function rotuloPapel(user) {
   if (!user) return "";
   if (user.role === "supervisor") return "Supervisor";
+  if (user.role === "setor") return "Conta de setor";
   return user.equipe ? `ACS · Equipe ${user.equipe}` : "ACS";
 }
